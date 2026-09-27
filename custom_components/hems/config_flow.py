@@ -19,7 +19,6 @@ def measurement_schema(defaults):
         "battery_entity",
         "ev_power_entity",
         "ev_soc_entity",
-        "ev_soc_timestamp_entity",
     ):
         required = key in ("soc_entity", "grid_entity", "battery_entity")
         marker = vol.Required if required else vol.Optional
@@ -30,9 +29,6 @@ def measurement_schema(defaults):
     )
     for key in ("invert_grid_power", "invert_battery_power"):
         schema[vol.Optional(key, default=defaults.get(key, False))] = bool
-    schema[vol.Optional("ev_soc_max_age", default=defaults.get("ev_soc_max_age", 900))] = vol.All(
-        vol.Coerce(int), vol.Range(min=60, max=86400)
-    )
     return vol.Schema(schema)
 
 

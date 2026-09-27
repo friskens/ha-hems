@@ -41,7 +41,7 @@ This repository is not in the HACS default catalogue. Manual installation: copy 
 
 Invert grid/battery signs in options when needed. Select non-overlapping PV entities: do not add an inverter total and its component channels together. Verify signs using a known charging/import/export situation. An AC-only PV sensor omits direct battery charging.
 
-Required observations expire after 120 seconds. Optional EV SOC has a configurable age limit and can use a source timestamp sensor. Repeatedly republishing a cached sensor value must not be mistaken for a fresh device measurement: see [protocol and freshness](docs/PROTOCOL.md).
+Required observations expire after 120 seconds. EV SOC has no client-side age limit: its source integration must keep it current and mark unusable readings unavailable. Repeatedly republishing a cached sensor value must not be mistaken for a fresh device measurement: see [protocol and freshness](docs/PROTOCOL.md).
 
 ## Control and recovery
 

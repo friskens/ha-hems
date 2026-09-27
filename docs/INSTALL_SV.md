@@ -17,3 +17,5 @@ Styrbrytaren visar önskad drift. Vid tillfälliga fel försöker klienten åter
 Testerna körs med simulerade HA-tjänster. Denna paketerade integration är ännu inte verifierad i skarp HA-drift. Ursprungliga installationens erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
 
 Gränssnittet finns på svenska och engelska och följer språkvalet i Home Assistant. Det omfattar inställningar, entitetsnamn, driftlägen, status och felmeddelanden.
+
+Observera: HEMS kontrollerar inte åldern på bilens laddnivå. Källintegrationen ansvarar för aktuella värden och ska markera oanvändbara värden som otillgängliga. Ingen timeout eller tidssensor för bilens SOC konfigureras här.

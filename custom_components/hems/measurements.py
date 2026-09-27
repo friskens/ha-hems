@@ -12,7 +12,7 @@ class Observation:
 
 
 def normalize(observation, now, kind, max_age=120, invert=False):
-    if observation is None or not 0 <= now - observation.reported_at < max_age:
+    if observation is None or (max_age is not None and not 0 <= now - observation.reported_at < max_age):
         return None
     try:
         value = float(observation.value)
@@ -44,18 +44,10 @@ def collect(options, observe, now):
             if field in ("soc", "grid_power", "battery_power"):
                 invalid.append(field)
             continue
-        age = options.get("ev_soc_max_age", 900) if field == "ev_soc_pct" else 120
+        # EV SOC freshness belongs to its source integration. Legacy timeout and
+        # timestamp options are intentionally ignored, including existing entries.
+        age = None if field == "ev_soc_pct" else 120
         obs = observe(entity)
-        # Optional source timestamp protects against repeated cached cloud data.
-        if field == "ev_soc_pct" and options.get("ev_soc_timestamp_entity"):
-            source = observe(options["ev_soc_timestamp_entity"])
-            try:
-                from datetime import datetime
-
-                stamp = datetime.fromisoformat(str(source.value)).timestamp()
-                obs = Observation(obs.value, obs.unit, stamp)
-            except (AttributeError, ValueError, TypeError):
-                obs = None
         value = normalize(
             obs,
             now,

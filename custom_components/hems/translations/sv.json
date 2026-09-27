@@ -13,7 +13,7 @@
       },
       "measurements": {
         "title": "Mätkällor",
-        "description": "Positiv näteffekt betyder import; positiv batterieffekt betyder laddning. Solproduktionen ska inkludera direkt batteriladdning. Välj solsensorer som inte överlappar.",
+        "description": "Positiv näteffekt betyder import; positiv batterieffekt betyder laddning. Solproduktionen ska inkludera direkt batteriladdning. Välj solsensorer som inte överlappar.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
         "data": {
           "soc_entity": "Batteriets laddnivå",
           "grid_entity": "Näteffekt",
@@ -21,10 +21,8 @@
           "solar_entities": "Sensorer för solproduktion",
           "ev_power_entity": "Bilens laddeffekt (valfritt)",
           "ev_soc_entity": "Bilens laddnivå (valfritt)",
-          "ev_soc_timestamp_entity": "Tidpunkt för bilens ursprungliga mätvärde (valfritt)",
           "invert_grid_power": "Vänd tecknet för näteffekt",
-          "invert_battery_power": "Vänd tecknet för batterieffekt",
-          "ev_soc_max_age": "Högsta ålder för bilens laddnivå (sekunder)"
+          "invert_battery_power": "Vänd tecknet för batterieffekt"
         }
       },
       "reauth_confirm": {
@@ -48,7 +46,7 @@
     "step": {
       "init": {
         "title": "Mätkällor",
-        "description": "När du sparar laddas integrationen om. Aktiv styrning återgår till Auto och startar återhämtningen.",
+        "description": "När du sparar laddas integrationen om. Aktiv styrning återgår till Auto och startar återhämtningen.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
         "data": {
           "soc_entity": "Batteriets laddnivå",
           "grid_entity": "Näteffekt",
@@ -56,10 +54,8 @@
           "solar_entities": "Sensorer för solproduktion",
           "ev_power_entity": "Bilens laddeffekt (valfritt)",
           "ev_soc_entity": "Bilens laddnivå (valfritt)",
-          "ev_soc_timestamp_entity": "Tidpunkt för bilens ursprungliga mätvärde (valfritt)",
           "invert_grid_power": "Vänd tecknet för näteffekt",
-          "invert_battery_power": "Vänd tecknet för batterieffekt",
-          "ev_soc_max_age": "Högsta ålder för bilens laddnivå (sekunder)"
+          "invert_battery_power": "Vänd tecknet för batterieffekt"
         }
       },
       "adapter": {
