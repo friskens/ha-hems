@@ -1,0 +1,121 @@
+"""Orchestration regressions with fake HA storage/services, not hardware tests."""
+
+import asyncio
+import importlib
+import sys
+import types
+from unittest.mock import AsyncMock
+
+import pytest
+
+from custom_components.hems.protocol import Decision
+
+
+@pytest.fixture
+def runtime(monkeypatch):
+    for name in (
+        "homeassistant",
+        "homeassistant.helpers",
+        "homeassistant.exceptions",
+        "homeassistant.helpers.event",
+        "homeassistant.helpers.storage",
+    ):
+        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+    sys.modules["homeassistant.exceptions"].HomeAssistantError = RuntimeError
+    sys.modules["homeassistant.helpers.event"].async_track_time_interval = lambda *args: lambda: None
+    sys.modules["homeassistant.helpers.storage"].Store = lambda *args: types.SimpleNamespace(
+        async_save=AsyncMock(), async_load=AsyncMock(return_value={})
+    )
+    sys.modules.pop("custom_components.hems.runtime", None)
+    module = importlib.import_module("custom_components.hems.runtime")
+    monkeypatch.setattr(module.time, "time", lambda: 1000)
+    hass = types.SimpleNamespace(async_create_task=asyncio.create_task)
+    entry = types.SimpleNamespace(
+        options={}, data={"endpoint": "https://example.com/battery", "api_key": "test"}, entry_id="test"
+    )
+    result = module.Runtime(hass, entry, None)
+    result.adapter.execute = AsyncMock()
+    return result
+
+
+async def test_repeated_stale_data_does_not_cancel_auto(runtime):
+    runtime.recovery.requested = True
+    runtime._owned = True
+    await runtime.fail("stale")
+    gate = asyncio.Event()
+    runtime.adapter.execute.side_effect = lambda *args: None
+
+    async def wait_for_auto(*args):
+        await gate.wait()
+
+    runtime.adapter.execute.side_effect = wait_for_auto
+    runtime.drive()
+    await asyncio.sleep(0)
+    task = runtime._write_task
+    await runtime.fail("stale")
+    await runtime.fail("stale")
+    assert not task.cancelled() and not task.done()
+    gate.set()
+    await task
+    assert not runtime.recovery.restore_pending
+    await runtime.fail("stale")
+    assert not runtime.recovery.restore_pending  # Already verified Auto is left alone.
+    assert runtime.recovery.requested
+
+
+async def test_identical_decision_does_not_write_again(runtime):
+    runtime.recovery.requested = True
+    runtime.decision = Decision("selfconsumption", 1, 1000)
+    runtime.drive()
+    await runtime._write_task
+    runtime.decision = Decision("selfconsumption", 9, 1000)
+    runtime.drive()
+    assert runtime.adapter.execute.await_count == 1
+
+
+async def test_write_failure_recovers_without_clearing_intent(runtime):
+    from custom_components.hems.adapter import VerificationError
+
+    runtime.recovery.requested = True
+    runtime.adapter.execute.side_effect = VerificationError("failed")
+    await runtime.apply(Decision("export", 2, 1000))
+    assert runtime.recovery.requested and runtime.recovery.restore_pending
+    assert runtime.recovery.ready_after == 1300
+
+
+async def test_manual_stop_wins(runtime):
+    runtime.recovery.requested = True
+    runtime._owned = True
+    runtime.schedule_tick = lambda _: None
+    await runtime.request(False)
+    assert not runtime.recovery.requested and runtime.recovery.restore_pending
+    runtime.drive()
+    await runtime._write_task
+    assert not runtime._owned
+    assert runtime.status == "stopped"
+
+
+async def test_observer_never_writes(runtime):
+    runtime.decision = Decision("export", 11, 1000)
+    runtime.drive()
+    assert runtime._write_task is None
+
+
+async def test_restart_keeps_desired_run_and_requires_auto(runtime):
+    runtime.store.async_load.return_value = {"requested": True, "owned": True}
+    runtime.schedule_tick = lambda _: None
+    await runtime.start()
+    assert runtime.recovery.requested and runtime.recovery.pending
+    assert runtime.recovery.restore_pending
+
+
+async def test_telemetry_continues_while_actuator_waits(runtime, monkeypatch):
+    module = sys.modules["custom_components.hems.runtime"]
+    sample = {"soc": 50, "grid_power": 500, "solar_power": 1000, "battery_power": 500}
+    monkeypatch.setattr(module, "collect", lambda *args: (sample, []))
+    runtime.client.exchange = AsyncMock(return_value=Decision("pause", 0, 1000))
+    runtime._write_task = asyncio.create_task(asyncio.Event().wait())
+    await runtime.tick()
+    runtime.client.exchange.assert_awaited_once()
+    assert not runtime._write_task.done()
+    await runtime.cancel_write()

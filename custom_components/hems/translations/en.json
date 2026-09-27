@@ -1,0 +1,60 @@
+{
+  "title": "HEMS Client",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to HEMS",
+        "description": "Enter your provider's complete HTTPS endpoint. Measurements are sent after setup; device control starts disabled.",
+        "data": {"name": "Name", "endpoint": "HTTPS endpoint", "api_key": "API key"}
+      },
+      "measurements": {
+        "title": "Measurement sources",
+        "description": "Positive grid power means import; positive battery power means charging. PV must include direct battery charging. Select non-overlapping PV sources.",
+        "data": {
+          "soc_entity": "Battery SOC", "grid_entity": "Grid power", "battery_entity": "Battery power",
+          "solar_entities": "PV production sources", "ev_power_entity": "EV charging power (optional)",
+          "ev_soc_entity": "EV SOC (optional)", "ev_soc_timestamp_entity": "EV original sample timestamp (optional)",
+          "invert_grid_power": "Invert grid power sign", "invert_battery_power": "Invert battery power sign",
+          "ev_soc_max_age": "Maximum EV SOC age (seconds)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Update HEMS API key",
+        "data": {"api_key": "API key"}
+      }
+    },
+    "error": {
+      "invalid_endpoint": "Use a full HTTPS endpoint without credentials, query parameters or fragment.",
+      "invalid_key": "Enter an API key.",
+      "missing_solar": "Select at least one PV production source."
+    },
+    "abort": {
+      "already_configured": "This endpoint is already configured.",
+      "reauth_successful": "API key updated. The next exchange will check authentication."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Measurement sources",
+        "description": "Saving options reloads the integration. Active control returns to Auto and re-enters recovery.",
+        "data": {
+          "soc_entity": "Battery SOC", "grid_entity": "Grid power", "battery_entity": "Battery power",
+          "solar_entities": "PV production sources", "ev_power_entity": "EV charging power (optional)",
+          "ev_soc_entity": "EV SOC (optional)", "ev_soc_timestamp_entity": "EV original sample timestamp (optional)",
+          "invert_grid_power": "Invert grid power sign", "invert_battery_power": "Invert battery power sign",
+          "ev_soc_max_age": "Maximum EV SOC age (seconds)"
+        }
+      },
+      "adapter": {
+        "title": "Optional device adapter",
+        "description": "Leave empty for observation only. Scripts must implement ordered writes and independent hardware readback according to the repository's adapter contract. Select only verified supported commands.",
+        "data": {"apply_script": "Apply and verify script", "auto_script": "Restore and verify Auto script", "commands": "Supported commands"}
+      }
+    },
+    "error": {
+      "missing_solar": "Select at least one PV production source.",
+      "incomplete_adapter": "Select both scripts and at least one supported command, or clear all adapter fields."
+    }
+  }
+}
