@@ -14,7 +14,7 @@ Integrationen skriver aldrig SOC-gränser. Behåll batteritillverkarens och din 
 
 Styrbrytaren visar önskad drift. Vid tillfälliga fel försöker klienten återgå till Auto och återupptar sedan driften efter verifierad återhämtning. Den ska inte bli permanent avstängd av ett kommunikationsfel. Ett manuellt stopp gäller tills du själv slår på igen.
 
-Testerna körs med simulerade HA-tjänster. Denna paketerade integration är ännu inte verifierad i skarp HA-drift. Ursprungliga installationens erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
+Installation via HACS och konfigurering av 0.1.0a3 har kontrollerats i HA 2026.9.3, med testposten lämnad inaktiverad. Se [riktiga konfigurationsbilder](SCREENSHOTS.md). Automatiska tester körs med simulerade HA-tjänster; molnkommunikation och hårdvarustyrning är ännu inte verifierade i skarp drift med den paketerade integrationen. Ursprungliga installationens erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
 
 Gränssnittet finns på svenska och engelska och följer språkvalet i Home Assistant. Det omfattar inställningar, entitetsnamn, driftlägen, status och felmeddelanden.
 

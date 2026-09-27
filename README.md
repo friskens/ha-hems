@@ -19,7 +19,7 @@ A community Home Assistant integration for the HEMS service at [PowerGravio](htt
 
 ## Install through HACS
 
-Requires Home Assistant 2025.3 or later. Runtime compatibility still needs validation on a real HA installation; the automated tests exercise the protocol and orchestration with fake HA services.
+Requires Home Assistant 2025.3 or later. Installation and configuration of 0.1.0a3 have been checked on HA 2026.9.3 with the test entry left disabled. Live cloud exchanges, hardware control and broader version compatibility still require validation; automated tests exercise the protocol and orchestration with fake HA services. See the [real configuration screenshots](docs/SCREENSHOTS.md).
 
 1. In HACS, add `https://github.com/friskens/ha-hems` as a **custom repository**, category **Integration**.
 2. Enable prereleases if needed and download HEMS Client.
