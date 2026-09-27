@@ -1,6 +1,6 @@
 # Installation och första kontroll
 
-HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a2 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md). Någon färdig Fronius-drivrutin eller automatisk styrning av bil/avfuktare ingår ännu inte.
+HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a3 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md). Någon färdig Fronius-drivrutin eller automatisk styrning av bil/avfuktare ingår ännu inte.
 
 1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs.
 2. Installera, starta om HA och lägg till **HEMS Client**.

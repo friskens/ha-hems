@@ -2,7 +2,7 @@
 
 A community Home Assistant integration for the HEMS service at [PowerGravio](https://powergravio.se), with configurable sensors and an explicit device adapter contract.
 
-**0.1.0a2 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. A ready-made Fronius driver and automatic EV/deferrable-load control are **not included** yet. This is not an official PowerGravio, Fronius or Home Assistant integration.
+**0.1.0a3 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. A ready-made Fronius driver and automatic EV/deferrable-load control are **not included** yet. This is not an official PowerGravio, Fronius or Home Assistant integration.
 
 [Svenska](docs/INSTALL_SV.md) · [Adapter contract](docs/ADAPTER.md) · [Lessons learned](docs/LESSONS_LEARNED.md) · [Protocol](docs/PROTOCOL.md) · [Roadmap](docs/ROADMAP.md)
 

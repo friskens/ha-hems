@@ -6,6 +6,7 @@ import time
 import uuid
 
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
@@ -78,6 +79,7 @@ class Runtime:
         self._cancel_timer = async_track_time_interval(self.hass, self.schedule_tick, timedelta(seconds=5))
         self.schedule_tick(None)
 
+    @callback
     def schedule_tick(self, _):
         if not self._closing and (self._tick_task is None or self._tick_task.done()):
             self._tick_task = self.hass.async_create_task(self.tick())

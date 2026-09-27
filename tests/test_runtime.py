@@ -16,12 +16,14 @@ def runtime(monkeypatch):
     for name in (
         "homeassistant",
         "homeassistant.helpers",
+        "homeassistant.core",
         "homeassistant.exceptions",
         "homeassistant.helpers.event",
         "homeassistant.helpers.storage",
     ):
         monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
     sys.modules["homeassistant.exceptions"].HomeAssistantError = RuntimeError
+    sys.modules["homeassistant.core"].callback = lambda function: function
     sys.modules["homeassistant.helpers.event"].async_track_time_interval = lambda *args: lambda: None
     sys.modules["homeassistant.helpers.storage"].Store = lambda *args: types.SimpleNamespace(
         async_save=AsyncMock(), async_load=AsyncMock(return_value={})

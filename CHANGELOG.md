@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0a3
 
-EV SOC freshness is now owned by the source integration. Removed the EV SOC timeout and timestamp selectors, added English/Swedish guidance, and retained numeric/range validation. Existing timeout/timestamp options are ignored.
+EV SOC freshness is now owned by the source integration. Removed the EV SOC timeout and timestamp selectors, added English/Swedish guidance, and retained numeric/range validation. Existing timeout/timestamp options are ignored. Scheduled sampling is explicitly marked as an HA event-loop callback.
 
 ## 0.1.0a2
 
