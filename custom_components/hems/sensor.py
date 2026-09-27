@@ -1,32 +1,44 @@
 """Decision and execution status. Measured power is not inferred from commands."""
 
 import time
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 
 from .entity import HemsEntity
+from .const import COMMANDS
+
+EXECUTION_STATES = [
+    "starting",
+    "observing",
+    "stopped",
+    "recovering",
+    "observation_error",
+    "restoring_auto",
+    "applying",
+    "settings_verified",
+]
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     runtime = entry.runtime_data
     async_add_entities(
-        [
-            HemsSensor(runtime, key, name)
-            for key, name in [
-                ("decision", "Decision"),
-                ("execution", "Execution"),
-                ("connection", "Connection"),
-                ("ev_soc", "Reported EV state of charge"),
-            ]
-        ]
+        [HemsSensor(runtime, key) for key in ("decision", "execution", "connection", "ev_soc")]
     )
 
 
 class HemsSensor(HemsEntity, SensorEntity):
-    def __init__(self, runtime, key, name):
-        super().__init__(runtime, key, name)
+    def __init__(self, runtime, key):
+        super().__init__(runtime, key)
         self.key = key
         if key == "ev_soc":
             self._attr_native_unit_of_measurement = "%"
+            self._attr_device_class = SensorDeviceClass.BATTERY
+        else:
+            self._attr_device_class = SensorDeviceClass.ENUM
+            self._attr_options = {
+                "decision": list(COMMANDS),
+                "execution": EXECUTION_STATES,
+                "connection": ["connected", "warning", "disconnected"],
+            }[key]
 
     @property
     def native_value(self):

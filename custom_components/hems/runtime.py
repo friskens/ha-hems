@@ -86,7 +86,7 @@ class Runtime:
         if enabled and (
             not self.adapter.apply_script or not self.adapter.auto_script or not self.adapter.commands
         ):
-            raise HomeAssistantError("Configure apply/Auto scripts and supported commands first")
+            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="adapter_required")
         self.recovery.request(enabled, time.time())
         # A fresh observer-only installation must never touch equipment.
         if not enabled and not self._owned:

@@ -42,7 +42,9 @@ def adapter_schema(defaults):
         marker = vol.Optional(key, default=defaults[key]) if defaults.get(key) else vol.Optional(key)
         schema[marker] = selector.EntitySelector(selector.EntitySelectorConfig(domain="script"))
     schema[vol.Optional("commands", default=defaults.get("commands", []))] = selector.SelectSelector(
-        selector.SelectSelectorConfig(options=[v for v in COMMANDS if v != "observe"], multiple=True)
+        selector.SelectSelectorConfig(
+            options=[v for v in COMMANDS if v != "observe"], multiple=True, translation_key="commands"
+        )
     )
     return vol.Schema(schema)
 

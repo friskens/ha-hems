@@ -2,7 +2,7 @@
 
 A community Home Assistant integration for the HEMS service at [PowerGravio](https://powergravio.se), with configurable sensors and an explicit device adapter contract.
 
-**0.1.0a1 is an experimental first release.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. A ready-made Fronius driver and automatic EV/deferrable-load control are **not included** yet. This is not an official PowerGravio, Fronius or Home Assistant integration.
+**0.1.0a2 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. A ready-made Fronius driver and automatic EV/deferrable-load control are **not included** yet. This is not an official PowerGravio, Fronius or Home Assistant integration.
 
 [Svenska](docs/INSTALL_SV.md) · [Adapter contract](docs/ADAPTER.md) · [Lessons learned](docs/LESSONS_LEARNED.md) · [Protocol](docs/PROTOCOL.md) · [Roadmap](docs/ROADMAP.md)
 
@@ -62,3 +62,9 @@ python -m ruff check custom_components tests
 Tests cover protocol validation, authentication placement, measurement age/sign/unit conversion, command deduplication, restart intent and fault recovery. They do not replace testing of HA setup/config flows or live inverter behavior. Contributions should include a regression for the failure being fixed. See [CONTRIBUTING](CONTRIBUTING.md).
 
 MIT licensed. Existing production YAML/scripts are not modified by installing this package.
+
+## Languages and maintenance
+
+The integration UI supports English and Swedish: configuration, entity names, modes, status and errors. Home Assistant selects translations from the user's language settings. Both languages are checked for matching keys in CI.
+
+Open ha-hems.code-workspace for the dedicated development workspace.

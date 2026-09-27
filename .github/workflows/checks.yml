@@ -17,8 +17,17 @@ jobs:
       - run: python -m pytest -q
       - run: python -m ruff check custom_components tests
       - run: python -m compileall -q custom_components
+      - run: python scripts/check_project.py
   hassfest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: home-assistant/actions/hassfest@master
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands

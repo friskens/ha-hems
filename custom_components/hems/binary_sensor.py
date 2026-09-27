@@ -7,7 +7,7 @@ from .entity import HemsEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    async_add_entities([MeasurementsReady(entry.runtime_data, "measurements", "Measurements ready")])
+    async_add_entities([MeasurementsReady(entry.runtime_data, "measurements")])
 
 
 class MeasurementsReady(HemsEntity, BinarySensorEntity):

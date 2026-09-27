@@ -1,0 +1,7 @@
+{
+  "folders": [{"name": "HACS HEMS", "path": "."}],
+  "settings": {
+    "files.exclude": {"**/__pycache__": true, ".test-deps": true},
+    "search.exclude": {".test-deps": true, ".venv": true}
+  }
+}

@@ -6,7 +6,7 @@ from .entity import HemsEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    async_add_entities([ControlSwitch(entry.runtime_data, "control", "Control requested")])
+    async_add_entities([ControlSwitch(entry.runtime_data, "control")])
 
 
 class ControlSwitch(HemsEntity, SwitchEntity):
