@@ -16,7 +16,7 @@ def test_presentation_sign_never_changes_control():
     decision = parse_response({"action": "export", "power_kw": 2.5, "power": -2500, "power_unit": "w"}, 100)
     assert decision.effective == ("export", 2500)
     assert parse_response({"action": "pause"}, 100).effective == ("pause", 0)
-    assert Decision("selfconsumption", 11, 100).effective == Decision("selfconsumption", 1, 100).effective
+    assert Decision("selfconsumption", 11, 100).effective != Decision("selfconsumption", 1, 100).effective
 
 
 @pytest.mark.parametrize("value,expected", [(1, 1), (60, 60), (300, 300)])

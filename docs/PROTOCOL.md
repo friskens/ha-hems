@@ -31,9 +31,11 @@ Connection display: successful exchange age under 150 s = connected, 150–600 s
 }
 ```
 
-`power_kw` is finite, numeric and nonnegative, required for charge/chargesolar/export/peakshaving. For non-target actions it may be omitted and defaults to zero. `power` is presentation only and may have a user-selected sign. Accepted units are lowercase `w` or `kw`. Boolean values are not numeric. An optional `soc` response is validated but is never written as a battery limit.
+`power_kw` is finite, numeric and nonnegative, required for charge/chargesolar/export/peakshaving/selfconsumption. For non-target actions it may be omitted and defaults to zero. `power` is presentation only and may have a user-selected sign. Accepted units are lowercase `w` or `kw`. Boolean values are not numeric. An optional `soc` response is validated but is never written as a battery limit.
 
 Known actions: charge, chargesolar, selfconsumption, sellsolar, pause, export, peakshaving, zeroexport, observe. Unknown actions, including `unchanged`, are rejected. The adapter capability list is separate from this protocol list.
+
+For selfconsumption, `power_kw` is the maximum battery discharge contribution, not a forced output. The client passes the action and ceiling unchanged to the adapter (converted to W), independently of EV telemetry. An explicit zero blocks discharge; an omitted ceiling is rejected. Device-specific execution belongs in adapter scripts.
 
 The Decision sensor exposes `command_supported` and `supported_commands`. During active control an unsupported action causes verified Auto recovery and the local error `unsupported_adapter_command`; it is not repeatedly attempted. Telemetry continues when measurements are valid. This is local feedback only: the request currently contains no execution acknowledgement for the service.
 

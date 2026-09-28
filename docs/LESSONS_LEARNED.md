@@ -4,7 +4,7 @@ These observations shaped this package. They are not claims that the new package
 
 ## Separate planning from execution
 
-The cloud should choose a mode/target; fast self-consumption regulation belongs in the inverter. Sending a new battery power target every minute or two produced inferior self-consumption. Unrestricted self-consumption can use local Auto; a requested discharge ceiling must also be respected. The generic adapter's handling of such ceilings remains an open contract review; see ADAPTER.md.
+The cloud should choose a mode/target; fast self-consumption regulation belongs in the inverter. Sending a new battery power target every minute or two produced inferior self-consumption. Unrestricted self-consumption can use local Auto; a requested discharge ceiling must also be respected. Device-specific optimizations belong in adapter scripts; the generic client preserves the requested action and ceiling. See ADAPTER.md.
 
 Telemetry cadence and actuator cadence are separate. Repeated cloud responses should not cause repeated writes or register reads. Read back after new commands, restart and recovery, and keep telemetry running while a slow actuator change is in progress.
 

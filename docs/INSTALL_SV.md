@@ -8,10 +8,13 @@ felet `unsupported_adapter_command`. Detta kvitteras ännu inte till molntjänst
 
 Kontrollera solsensorerna nattetid: färska 0 W fungerar, men `unavailable` är
 inte samma sak som noll. Saknade frivilliga bilvärden stoppar inte sändningen.
-Effekttak för selfconsumption är fortfarande under utredning; använd inte den
-mappningen där ett sådant tak krävs innan adapterkontraktet är verifierat.
+Selfconsumption och `power_kw` skickas till adaptern som kommando och maximalt
+urladdningstak, oberoende av bilens laddning. Noll betyder noll tillåten
+urladdning; ett saknat tak avvisas. Val av växelriktarläge och lokala
+optimeringar hör hemma i adapterskripten. Befintliga adaptrar måste stödja
+takkontraktet innan denna version aktiveras.
 
-HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a3 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md). Någon färdig Fronius-drivrutin eller automatisk styrning av bil/avfuktare ingår ännu inte.
+HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a4 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md). Någon färdig Fronius-drivrutin eller automatisk styrning av bil/avfuktare ingår ännu inte.
 
 1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs.
 2. Installera, starta om HA och lägg till **HEMS Client**.

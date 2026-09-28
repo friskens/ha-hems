@@ -56,10 +56,10 @@ class Decision:
 
     @property
     def effective(self):
-        # Auto regulates locally; other no-target modes must not churn on watts.
+        # Only actions without a power target ignore watts for deduplication.
         watts = (
             round(self.power_kw * 1000, 3)
-            if self.action in {"charge", "chargesolar", "export", "peakshaving"}
+            if self.action in {"charge", "chargesolar", "export", "peakshaving", "selfconsumption"}
             else 0.0
         )
         return self.action, watts
@@ -70,7 +70,10 @@ def parse_response(data, received_at):
         raise ProtocolError("invalid_action")
     action = data["action"]
     power = number(
-        data.get("power_kw", None if action in {"charge", "chargesolar", "export", "peakshaving"} else 0),
+        data.get(
+            "power_kw",
+            None if action in {"charge", "chargesolar", "export", "peakshaving", "selfconsumption"} else 0,
+        ),
         "power_kw",
         0,
     )

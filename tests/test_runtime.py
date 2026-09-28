@@ -68,12 +68,31 @@ async def test_repeated_stale_data_does_not_cancel_auto(runtime):
 
 async def test_identical_decision_does_not_write_again(runtime):
     runtime.recovery.requested = True
+    runtime.measurements = {"ev_power_w": 0}
     runtime.decision = Decision("selfconsumption", 1, 1000)
     runtime.drive()
     await runtime._write_task
-    runtime.decision = Decision("selfconsumption", 9, 1000)
+    runtime.decision = Decision("selfconsumption", 1, 1000)
     runtime.drive()
     assert runtime.adapter.execute.await_count == 1
+
+
+async def test_ev_changes_do_not_remap_action_but_cap_changes_trigger_writes(runtime):
+    runtime.recovery.requested = True
+    runtime.decision = Decision("selfconsumption", 2, 1000)
+    for ev, cap, expected in [
+        (0, 2, ("selfconsumption", 2000)),
+        (7000, 2, ("selfconsumption", 2000)),
+        (7000, 1, ("selfconsumption", 1000)),
+        (0, 1, ("selfconsumption", 1000)),
+        (None, 1, ("selfconsumption", 1000)),
+    ]:
+        runtime.measurements = {"ev_power_w": ev}
+        runtime.decision = Decision("selfconsumption", cap, 1000)
+        runtime.drive()
+        await runtime._write_task
+        assert runtime.adapter.execute.call_args.args[:2] == expected
+    assert runtime.adapter.execute.await_count == 2
 
 
 async def test_write_failure_recovers_without_clearing_intent(runtime):
@@ -155,7 +174,28 @@ async def test_unsupported_command_restores_auto_once_and_remains_visible(runtim
     assert runtime.status == "recovering"
     assert runtime.recovery.requested
     runtime.adapter.execute.assert_awaited_once()
+    assert runtime.client.exchange.await_count == 5
     assert runtime.adapter.execute.call_args.args[0] == "auto"
+
+
+async def test_failed_exchange_backs_off_then_resumes_twenty_second_cadence(runtime, monkeypatch):
+    from custom_components.hems.transport import TransportError
+
+    module = sys.modules["custom_components.hems.runtime"]
+    sample = {"soc": 50, "grid_power": 0, "solar_power": 0, "battery_power": 0}
+    monkeypatch.setattr(module, "collect", lambda *args: (sample, []))
+    runtime.client.exchange = AsyncMock(side_effect=[
+        TransportError("offline"), Decision("pause", 0, 1060), Decision("pause", 0, 1080),
+    ])
+    await runtime.tick()
+    for stamp in (1020, 1040):
+        monkeypatch.setattr(module.time, "time", lambda: stamp)
+        await runtime.tick()
+    assert runtime.client.exchange.await_count == 1
+    for stamp in (1060, 1080):
+        monkeypatch.setattr(module.time, "time", lambda: stamp)
+        await runtime.tick()
+    assert runtime.client.exchange.await_count == 3
 
 
 @pytest.mark.parametrize("missing", [False, True])

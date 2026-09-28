@@ -34,7 +34,7 @@ The timeout is 120 seconds. On timeout/cancellation the client requests `script.
 | --- | --- |
 | charge | Charge at requested target; allow solar, prevent discharge |
 | chargesolar | Solar charging only, prevent discharge; interpret target explicitly |
-| selfconsumption | Restore autonomous local self-consumption, without a slow outer power loop |
+| selfconsumption | Autonomous local regulation with `power_w` as maximum battery discharge; zero blocks discharge |
 | pause | Soft pause: prevent discharge, allow surplus solar charging |
 | sellsolar | Prefer exporting PV; prevent battery charge and discharge in this project's mapping |
 | export | Controlled net grid export; target is not automatically battery discharge power |
@@ -43,20 +43,28 @@ The timeout is 120 seconds. On timeout/cancellation the client requests `script.
 | observe | The runtime sends no actuator command and leaves existing settings unchanged |
 | auto | Clear controls owned by this adapter and restore local autonomous behavior |
 
-`selfconsumption`, `pause`, `sellsolar` and `zeroexport` ignore changing response watts for deduplication. Supported actions must match these semantics; do not tick every action merely because its name is recognised.
+`pause`, `sellsolar` and `zeroexport` ignore changing response watts for deduplication. A changed selfconsumption ceiling is a new effective command. Supported actions must match these semantics; do not tick every action merely because its name is recognised.
 
 No SOC min/max is passed to scripts. Do not add unsolicited SOC writes. Do not silently convert an unsupported action into a different action: signal a failure and let Auto recovery handle it.
 
 An action outside the configured capability list is reported as `unsupported_adapter_command` during active control. The client restores Auto once and waits for a supported decision, while retaining desired operation and continuing valid telemetry. The Decision sensor exposes capability support even in observation mode. No execution acknowledgement is sent to the service by this version.
 
-### Pending self-consumption contract review
+### Self-consumption and EV charging
 
-This version still treats selfconsumption as unrestricted local Auto and ignores
-its response power for actuation. Do not advertise this action with an adapter
-that must enforce a discharge cap until the target contract is implemented and
-verified. A local discharge ceiling can coexist with fast autonomous regulation;
-a slow fixed-power loop is not required. The meaning of omitted and zero targets
-must be established before changing the script contract.
+The generic client always passes `selfconsumption` and its discharge ceiling to
+the adapter, regardless of EV telemetry. It does not select an inverter mode or
+subtract EV power from the ceiling. Zero means zero permitted discharge; missing
+`power_kw` is rejected rather than interpreted as an unlimited target.
+
+Device-specific mode selection, percentage conversion, write ordering and local
+EV-related optimizations belong in the adapter scripts. Do not assume another
+inverter behaves like the original installation. An adapter with local inputs
+must handle their changes and freshness itself, including between unchanged
+HEMS decisions, and independently verify any resulting setting changes.
+
+Adapters advertising selfconsumption must implement this ceiling contract.
+Existing adapters that always map it to unrestricted Auto must be updated before
+enabling this version. No device-specific adapter is bundled.
 
 ## Recovery sequence
 

@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.1.0a4
 
 - Schedule healthy telemetry every 20 seconds independently of command interval metadata.
 - Expose adapter capabilities and retain an explicit unsupported-command error through Auto recovery without repeated unsupported writes.
-- Document nighttime measurement requirements and the unresolved self-consumption discharge-cap contract.
+- Preserve self-consumption discharge ceilings independently of EV telemetry. Device-specific mode selection remains in adapter scripts; existing adapters must implement the ceiling contract.
+- Document nighttime measurement requirements without fabricating zero solar production.
 
 ## 0.1.0a3
 

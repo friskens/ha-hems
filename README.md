@@ -2,7 +2,7 @@
 
 A community Home Assistant integration for the HEMS service at [PowerGravio](https://powergravio.se), with configurable sensors and an explicit device adapter contract.
 
-**0.1.0a3 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. A ready-made Fronius driver and automatic EV/deferrable-load control are **not included** yet. This is not an official PowerGravio, Fronius or Home Assistant integration.
+**0.1.0a4 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. A ready-made Fronius driver and automatic EV/deferrable-load control are **not included** yet. This is not an official PowerGravio, Fronius or Home Assistant integration.
 
 [Svenska](docs/INSTALL_SV.md) · [Adapter contract](docs/ADAPTER.md) · [Lessons learned](docs/LESSONS_LEARNED.md) · [Protocol](docs/PROTOCOL.md) · [Roadmap](docs/ROADMAP.md)
 
@@ -13,6 +13,7 @@ A community Home Assistant integration for the HEMS service at [PowerGravio](htt
 - Send fresh SOC, grid, PV and battery power, with optional EV power and EV SOC independently of charger control.
 - Healthy telemetry is sent every 20 seconds and at quarter-hour boundaries, independently of `command_interval_seconds`. Repeated commands do not cause additional device writes or readbacks.
 - Use unsigned `power_kw` for control; ignore the sign of the presentation field `power`.
+- Pass selfconsumption and its discharge ceiling to the adapter; keep inverter modes and EV-related optimizations in device-specific scripts.
 - Avoid repeated device writes/readbacks for unchanged effective commands.
 - Preserve requested operation across restart and temporary faults. Verify Auto, then require a fresh sequence before resuming; a manual stop remains stopped.
 - Leave locally configured battery SOC limits untouched.

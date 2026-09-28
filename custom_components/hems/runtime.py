@@ -43,6 +43,7 @@ class Runtime:
         self._owned = False
         self._reauth_started = False
         self._closing = False
+        self._exchange_failed = False
 
     def observe(self, entity):
         state = self.hass.states.get(entity)
@@ -138,21 +139,24 @@ class Runtime:
             await self.fail("measurements_unavailable")
         elif due(
             now, self.last_attempt, self.last_success, self.interval, self.measurements, self.previous
-        ) and (not self.error or now - self.last_attempt >= 60):
+        ) and (not self._exchange_failed or now - self.last_attempt >= 60):
             self.last_attempt = now
             try:
                 decision = await self.client.exchange(self.measurements, time.time)
             except AuthError:
+                self._exchange_failed = True
                 await self.fail("authentication_failed")
                 if not self._reauth_started:
                     self._reauth_started = True
                     self.entry.async_start_reauth(self.hass)
             except (TransportError, ProtocolError) as err:
+                self._exchange_failed = True
                 self.recovery.reset_good()
                 self.error = str(err)
                 if isinstance(err, ProtocolError) or now - self.last_success >= 180:
                     await self.fail(str(err))
             else:
+                self._exchange_failed = False
                 self.decision = decision
                 self.last_success = decision.received_at
                 self.previous = dict(self.measurements)
@@ -187,8 +191,9 @@ class Runtime:
             self.status = "observing"
             self.recovery.verified = None
             return
-        if self.recovery.verified != self.decision.effective:
-            self._write_task = self.hass.async_create_task(self.apply(self.decision))
+        effective = self.decision.effective
+        if self.recovery.verified != effective:
+            self._write_task = self.hass.async_create_task(self.apply(self.decision, effective))
 
     async def restore(self):
         self.status = "restoring_auto"
@@ -209,18 +214,19 @@ class Runtime:
         await self.save()
         self.publish()
 
-    async def apply(self, decision):
+    async def apply(self, decision, effective=None):
+        effective = effective or decision.effective
         self._owned = True  # Persist before any hardware write, including partial writes.
         await self.save()
         self.status = "applying"
         self.publish()
         try:
-            await self.adapter.execute(*decision.effective, str(uuid.uuid4()))
+            await self.adapter.execute(*effective, str(uuid.uuid4()))
         except VerificationError:
             self.recovery.fault(time.time(), control=True)
             self.status, self.error = "recovering", "write_unconfirmed"
         else:
-            self.recovery.verified = decision.effective
+            self.recovery.verified = effective
             self.status, self.error = "settings_verified", None
         await self.save()
         self.publish()
