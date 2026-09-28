@@ -12,3 +12,6 @@ secrets.yaml
 *.sqlite*
 dist/
 *.egg-info/
+.agents/
+.codex/
+skills/
