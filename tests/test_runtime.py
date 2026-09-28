@@ -36,6 +36,7 @@ def runtime(monkeypatch):
         options={}, data={"endpoint": "https://example.com/battery", "api_key": "test"}, entry_id="test"
     )
     result = module.Runtime(hass, entry, None)
+    result.adapter.commands = {"selfconsumption", "pause", "export"}
     result.adapter.execute = AsyncMock()
     return result
 
@@ -121,3 +122,49 @@ async def test_telemetry_continues_while_actuator_waits(runtime, monkeypatch):
     runtime.client.exchange.assert_awaited_once()
     assert not runtime._write_task.done()
     await runtime.cancel_write()
+
+
+async def test_command_interval_does_not_delay_telemetry(runtime, monkeypatch):
+    module = sys.modules["custom_components.hems.runtime"]
+    sample = {"soc": 50, "grid_power": 0, "solar_power": 0, "battery_power": 0}
+    monkeypatch.setattr(module, "collect", lambda *args: (sample, []))
+    runtime.client.exchange = AsyncMock(return_value=Decision("pause", 0, 1000, 300))
+    await runtime.tick()
+    monkeypatch.setattr(module.time, "time", lambda: 1020)
+    await runtime.tick()
+    assert runtime.client.exchange.await_count == 2
+    assert runtime.interval == 20
+    assert runtime.decision.interval == 300
+
+
+async def test_unsupported_command_restores_auto_once_and_remains_visible(runtime, monkeypatch):
+    module = sys.modules["custom_components.hems.runtime"]
+    sample = {"soc": 50, "grid_power": 0, "solar_power": 0, "battery_power": 0}
+    monkeypatch.setattr(module, "collect", lambda *args: (sample, []))
+    runtime.client.exchange = AsyncMock(return_value=Decision("zeroexport", 0, 1000))
+    runtime.recovery.requested = True
+    runtime._owned = True
+    runtime.last_success = 990
+    await runtime.tick()
+    await runtime._write_task
+    for stamp in (1020, 1040, 1060, 1080):
+        monkeypatch.setattr(module.time, "time", lambda: stamp)
+        await runtime.tick()
+    assert runtime.command_supported is False
+    assert runtime.error == "unsupported_adapter_command"
+    assert runtime.status == "recovering"
+    assert runtime.recovery.requested
+    runtime.adapter.execute.assert_awaited_once()
+    assert runtime.adapter.execute.call_args.args[0] == "auto"
+
+
+@pytest.mark.parametrize("missing", [False, True])
+async def test_nighttime_zero_is_valid_but_missing_pv_blocks(runtime, monkeypatch, missing):
+    module = sys.modules["custom_components.hems.runtime"]
+    sample = {"soc": 50, "grid_power": 500, "battery_power": 0}
+    if not missing:
+        sample["solar_power"] = 0
+    monkeypatch.setattr(module, "collect", lambda *args: (sample, ["solar_power"] if missing else []))
+    runtime.client.exchange = AsyncMock(return_value=Decision("pause", 0, 1000))
+    await runtime.tick()
+    assert runtime.client.exchange.await_count == (0 if missing else 1)

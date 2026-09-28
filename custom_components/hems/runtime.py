@@ -52,6 +52,12 @@ class Runtime:
             state.state, state.attributes.get("unit_of_measurement"), state.last_reported.timestamp()
         )
 
+    @property
+    def command_supported(self):
+        if self.decision is None:
+            return None
+        return self.decision.action == "observe" or self.decision.action in self.adapter.commands
+
     def subscribe(self, callback):
         self.listeners.add(callback)
         return lambda: self.listeners.discard(callback)
@@ -150,11 +156,12 @@ class Runtime:
                 self.decision = decision
                 self.last_success = decision.received_at
                 self.previous = dict(self.measurements)
-                self.interval = decision.interval
                 self.error = None
                 self.recovery.good(decision.received_at)
                 if not self.recovery.requested and not self.recovery.restore_pending:
                     self.status = "observing"
+        if self.recovery.requested and self.command_supported is False:
+            await self.fail("unsupported_adapter_command")
         self.drive()
         self.publish()
 
@@ -166,6 +173,8 @@ class Runtime:
             if now - self.last_restore >= 60:
                 self.last_restore = now
                 self._write_task = self.hass.async_create_task(self.restore())
+            return
+        if self.command_supported is False:
             return
         if self.recovery.can_resume(now, self.decision):
             self.recovery.pending = False
@@ -192,7 +201,11 @@ class Runtime:
             self.recovery.restore_pending = False
             self._owned = False
             self.status = "recovering" if self.recovery.requested else "stopped"
-            self.error = None
+            self.error = (
+                "unsupported_adapter_command"
+                if self.recovery.requested and self.command_supported is False
+                else None
+            )
         await self.save()
         self.publish()
 

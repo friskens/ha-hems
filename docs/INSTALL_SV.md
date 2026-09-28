@@ -1,5 +1,16 @@
 # Installation och första kontroll
 
+Aktuell utvecklingsversion skickar giltiga mätvärden var 20:e sekund, oberoende
+av svarets `command_interval_seconds`. Den läser HA:s befintliga tillstånd och
+ökar inte avläsningen av växelriktarregister. Kommandon som adaptern inte stöder
+visas med `command_supported: false` och ger vid aktiv styrning lokal Auto med
+felet `unsupported_adapter_command`. Detta kvitteras ännu inte till molntjänsten.
+
+Kontrollera solsensorerna nattetid: färska 0 W fungerar, men `unavailable` är
+inte samma sak som noll. Saknade frivilliga bilvärden stoppar inte sändningen.
+Effekttak för selfconsumption är fortfarande under utredning; använd inte den
+mappningen där ett sådant tak krävs innan adapterkontraktet är verifierat.
+
 HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a3 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md). Någon färdig Fronius-drivrutin eller automatisk styrning av bil/avfuktare ingår ännu inte.
 
 1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs.

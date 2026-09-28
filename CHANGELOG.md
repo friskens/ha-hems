@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Schedule healthy telemetry every 20 seconds independently of command interval metadata.
+- Expose adapter capabilities and retain an explicit unsupported-command error through Auto recovery without repeated unsupported writes.
+- Document nighttime measurement requirements and the unresolved self-consumption discharge-cap contract.
+
 ## 0.1.0a3
 
 EV SOC freshness is now owned by the source integration. Removed the EV SOC timeout and timestamp selectors, added English/Swedish guidance, and retained numeric/range validation. Existing timeout/timestamp options are ignored. Scheduled sampling is explicitly marked as an HA event-loop callback.

@@ -61,6 +61,9 @@ class HemsSensor(HemsEntity, SensorEntity):
                 "received_at": r.decision.received_at,
                 "fresh": 0 <= time.time() - r.decision.received_at < 90,
                 "loads": dict(r.decision.loads) if r.decision.loads is not None else None,
+                "command_supported": r.command_supported,
+                "supported_commands": sorted(r.adapter.commands),
+                "command_interval_seconds": r.decision.interval,
             }
         if self.key == "execution":
             return {
@@ -70,5 +73,7 @@ class HemsSensor(HemsEntity, SensorEntity):
                 "retry_after": r.recovery.ready_after,
                 "invalid_fields": r.invalid,
                 "verified_effective_command": r.recovery.verified,
+                "command_supported": r.command_supported,
+                "telemetry_interval_seconds": r.interval,
             }
         return None

@@ -47,6 +47,17 @@ The timeout is 120 seconds. On timeout/cancellation the client requests `script.
 
 No SOC min/max is passed to scripts. Do not add unsolicited SOC writes. Do not silently convert an unsupported action into a different action: signal a failure and let Auto recovery handle it.
 
+An action outside the configured capability list is reported as `unsupported_adapter_command` during active control. The client restores Auto once and waits for a supported decision, while retaining desired operation and continuing valid telemetry. The Decision sensor exposes capability support even in observation mode. No execution acknowledgement is sent to the service by this version.
+
+### Pending self-consumption contract review
+
+This version still treats selfconsumption as unrestricted local Auto and ignores
+its response power for actuation. Do not advertise this action with an adapter
+that must enforce a discharge cap until the target contract is implemented and
+verified. A local discharge ceiling can coexist with fast autonomous regulation;
+a slow fixed-power loop is not required. The meaning of omitted and zero targets
+must be established before changing the script contract.
+
 ## Recovery sequence
 
 1. Persist desired operation and ownership before a write.

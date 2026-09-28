@@ -12,7 +12,7 @@ The client sends only validated measurements and does not use `heartbeat: true`.
 
 ## Cadence
 
-The client checks HA's existing state cache every five seconds; it does not poll inverter registers. Requests follow `max(20, min(110, command_interval_seconds))`, additionally at quarter-hour boundaries and on changes of at least 200 W or 1 percentage point SOC. Change-triggered requests have a 20-second minimum spacing; quarter boundaries bypass it. Failed exchanges back off for 60 seconds, so failure backoff can postpone a quarter-boundary request.
+The client checks HA's existing state cache every five seconds; it does not poll inverter registers. Healthy telemetry exchanges are scheduled every 20 seconds, additionally at quarter-hour boundaries. Measurement changes of at least 200 W or 1 percentage point SOC also qualify, with a 20-second minimum spacing; quarter boundaries bypass it. Failed exchanges back off for 60 seconds, so failure backoff can postpone a quarter-boundary request. `command_interval_seconds` is validated and exposed as response metadata; it does not change the telemetry interval.
 
 A received effective command is applied once it passes validation and recovery gates. Repeated commands refresh communication without rewriting device settings. The cadence above describes this client's current implementation, not a requirement for how the service schedules decisions.
 
@@ -35,11 +35,15 @@ Connection display: successful exchange age under 150 s = connected, 150–600 s
 
 Known actions: charge, chargesolar, selfconsumption, sellsolar, pause, export, peakshaving, zeroexport, observe. Unknown actions, including `unchanged`, are rejected. The adapter capability list is separate from this protocol list.
 
+The Decision sensor exposes `command_supported` and `supported_commands`. During active control an unsupported action causes verified Auto recovery and the local error `unsupported_adapter_command`; it is not repeatedly attempted. Telemetry continues when measurements are valid. This is local feedback only: the request currently contains no execution acknowledgement for the service.
+
 Loads are validated and shown as ID/action pairs only in this alpha. Missing/null loads mean no list was supplied; an empty list is not interpreted as an instruction to switch everything off. No load output is actuated. Numerical optional fields are validated, but their values are not yet exposed for load control.
 
 ## Freshness
 
 Required sensor values must be numeric, use recognised units and have a `last_reported` age below 120 seconds. `unknown`/`unavailable`, nonfinite values, future timestamps and invalid SOC are rejected. The integration reads current observations, not a latch whose timestamp is renewed by reuse.
+
+A fresh PV reading of 0 W is valid at night. An unavailable PV source is not converted to zero: verify the source integration's nighttime behavior before commissioning. Missing optional EV inputs do not stop the required telemetry. Partial required telemetry is not sent without an agreed provider contract for handling missing fields.
 
 HA's `last_reported` says when an entity reported, not when a remote device physically sampled. Configure upstream integrations to expose truthful observations. EV SOC has no client-side timeout or timestamp selector. Its source integration owns freshness and must mark unusable values unknown/unavailable; numeric values in 0–100% are accepted regardless of age. Legacy EV timeout/timestamp options are ignored. Required battery/grid/PV measurements retain their age checks. The generic client cannot detect an upstream integration repeatedly publishing cached data as fresh.
 

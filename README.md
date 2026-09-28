@@ -11,7 +11,7 @@ A community Home Assistant integration for the HEMS service at [PowerGravio](htt
 - Configure the HTTPS endpoint, API key and measurement entities in the HA UI.
 - Authenticate using `X-Api-Key`; never put the key in the request body or URL.
 - Send fresh SOC, grid, PV and battery power, with optional EV power and EV SOC independently of charger control.
-- The current client uses `max(20, min(110, command_interval_seconds))`, measurement changes and quarter-hour boundaries to schedule telemetry. Received commands are handled independently of that cadence.
+- Healthy telemetry is sent every 20 seconds and at quarter-hour boundaries, independently of `command_interval_seconds`. Repeated commands do not cause additional device writes or readbacks.
 - Use unsigned `power_kw` for control; ignore the sign of the presentation field `power`.
 - Avoid repeated device writes/readbacks for unchanged effective commands.
 - Preserve requested operation across restart and temporary faults. Verify Auto, then require a fresh sequence before resuming; a manual stop remains stopped.

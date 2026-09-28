@@ -19,7 +19,7 @@ def test_presentation_sign_never_changes_control():
     assert Decision("selfconsumption", 11, 100).effective == Decision("selfconsumption", 1, 100).effective
 
 
-@pytest.mark.parametrize("value,expected", [(1, 20), (60, 60), (300, 110)])
+@pytest.mark.parametrize("value,expected", [(1, 1), (60, 60), (300, 300)])
 def test_interval(value, expected):
     assert parse_response({"action": "pause", "command_interval_seconds": value}, 100).interval == expected
 

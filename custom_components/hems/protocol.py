@@ -107,7 +107,7 @@ def parse_response(data, received_at):
                     number(load[field], field, 0, maximum)
             parsed.append((load_id, load_action))
         parsed = tuple(parsed)
-    return Decision(action, power, received_at, max(20, min(110, interval)), parsed)
+    return Decision(action, power, received_at, interval, parsed)
 
 
 def changed(current, previous):
