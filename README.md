@@ -1,4 +1,5 @@
 # HEMS Client for Home Assistant
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/67c6c3a7-12d2-45aa-9c0e-488cfe02f8c4" />
 
 A community Home Assistant integration for the HEMS service at [PowerGravio](https://powergravio.se), with sensor configuration and actionable sensors exposed.
 
