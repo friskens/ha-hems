@@ -1,7 +1,7 @@
 """Public integration constants."""
 
 DOMAIN = "hems"
-VERSION = "0.1.0a4"
+VERSION = "0.1.0a5"
 PLATFORMS = ["sensor", "binary_sensor", "switch"]
 COMMANDS = (
     "charge",

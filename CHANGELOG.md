@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0a5
+
+- Document the optional charger identifier `uid` on charger loads and the optional `ev_chargers` list in the response. No client change is required; this alpha ignores both.
+
 ## 0.1.0a4
 
 - Schedule healthy telemetry every 20 seconds independently of command interval metadata.
