@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0a6
+
+- Document the optional `ev_power_by_uid` request field and the service's charger check in the protocol; add proposal 4 on charger current control. No client change; this alpha does not actuate loads.
+
 ## 0.1.0a5
 
 - Document the optional charger identifier `uid` on charger loads and the optional `ev_chargers` list in the response. No client change is required; this alpha ignores both.
