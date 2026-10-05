@@ -52,6 +52,30 @@ Fields used for control: `id`, `kind` (`ev` / `deferrable`), `action` (`charge`/
 `on`/`off` for `deferrable`), `current_a` (whole amperes, `ev` only), `target_pct` (`ev` only).
 `reason` is free text for display and logs — never parse it.
 
+## 4. Charger current control and the charger check
+
+The service already sends the desired charger state in every response: each `loads[]` entry with
+`kind: "ev"` carries `action` (`charge` / `stop`) and `current_a` (whole amperes). The rules in
+section 3 apply unchanged. Two things are needed for a Home Assistant installation to take part:
+
+**Telemetry.** Report the charger's measured power in `ev_power_w` (W, fresh). With more than one
+charger, send `ev_power_by_uid`: an object `{ "<uid>": watts }` keyed by the `uid` of each charger
+(the same `uid` as in `loads[]` and `ev_chargers`). The service accepts this optional request
+field today; a value in the object takes precedence over the positional `ev_power_w` list.
+
+**The charger check.** From the HEMS pages a customer can run a check of a charger. It uses the
+ordinary exchange only: for the duration of the check, the `loads[]` entry of that charger carries
+a sequence of currents, a stop and a restart, and the battery decision may change as usual. The
+client acts on these exactly as on any other response. For the check to pass, the installation
+must:
+
+1. Apply a new `current_a` or a `stop` within 3 minutes.
+2. Resume charging within 6 minutes after a `charge` that follows a `stop`, at the requested
+   current (the start itself must set the current, see section 3 rule 4).
+3. Keep telemetry flowing at least every 60 seconds; a gap longer than 3 minutes aborts the check.
+
+The result is shown on the customer's HEMS page. The response carries no check status today.
+
 ---
 
 When a change on the service side affects the client, a pull request against `docs/PROTOCOL.md`

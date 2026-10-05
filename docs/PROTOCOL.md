@@ -4,7 +4,7 @@ This implementation follows the HEMS contract supplied during development. It is
 
 ## Request
 
-HTTPS POST to the configured endpoint, with certificate validation and redirects disabled. Authentication: `X-Api-Key`. JSON contains numeric `soc` (%), `grid_power`, `solar_power`, `battery_power` (all W), optional `ev_power_w` and `ev_soc_pct`, `heartbeat: false`, and `app_version`.
+HTTPS POST to the configured endpoint, with certificate validation and redirects disabled. Authentication: `X-Api-Key`. JSON contains numeric `soc` (%), `grid_power`, `solar_power`, `battery_power` (all W), optional `ev_power_w` and `ev_soc_pct`, `heartbeat: false`, and `app_version`. The service also accepts an optional `ev_power_by_uid` object (`{"<uid>": watts}`, nonnegative W per charger `uid`) for installations with more than one charger; this alpha does not send it.
 
 No key is sent in the body. Missing measurements are not fabricated as zero. If required data is stale, the client stops submitting measurements and enters local recovery. Optional stale EV fields are omitted.
 
@@ -42,6 +42,8 @@ The Decision sensor exposes `command_supported` and `supported_commands`. During
 Loads are validated and shown as ID/action pairs only in this alpha. Missing/null loads mean no list was supplied; an empty list is not interpreted as an instruction to switch everything off. No load output is actuated. Numerical optional fields are validated, but their values are not yet exposed for load control.
 
 Charger loads may carry an optional `uid`: a string that identifies the charger. It is assigned by the service, stays the same for as long as the charger exists and is never reused for another charger. `id` (for example `ev_1`) is still present and remains the charger's position. The response may also contain an optional `ev_chargers` list with one object per charger: `id`, `uid`, `name` and `phases`. Both are informational for this client: unknown response fields and unknown fields in a load are ignored.
+
+The service can run a charger check started by the customer on the HEMS pages. It uses the ordinary exchange: while the check runs, the `loads[]` entry of that charger carries a sequence of `current_a` values, a `stop` and a `charge`, and the battery decision may change as usual. No new fields are involved. A client that actuates loads must apply a new current or a stop within 3 minutes and resume charging within 6 minutes after a restart, with telemetry at least every 60 seconds. This alpha does not actuate loads, so the check cannot pass with it.
 
 ## Freshness
 
