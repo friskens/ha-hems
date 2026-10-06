@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0a7
+
+- Document the optional `load_power_w` request field and the fields of `loads[]` entries, including `on`/`off` for deferrable loads and `reports_power`; add proposal 5 on deferrable-load actuation and measured power. No client change; this alpha does not actuate loads and does not send `load_power_w`.
+
 ## 0.1.0a6
 
 - Document the optional `ev_power_by_uid` request field and the service's charger check in the protocol; add proposal 4 on charger current control. No client change; this alpha does not actuate loads.

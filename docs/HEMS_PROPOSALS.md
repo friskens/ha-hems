@@ -76,6 +76,29 @@ must:
 
 The result is shown on the customer's HEMS page. The response carries no check status today.
 
+## 5. Deferrable loads: on/off actuation and measured power
+
+The service already sends the desired state of every configured deferrable load in each response:
+`loads[]` entries with `kind: "deferrable"` carry `action` (`on` / `off`), the rated power
+(`power_kw`, `power_w`) and `reports_power`. The rules in section 3 apply unchanged. For a Home
+Assistant installation to take part, two things are needed in the client:
+
+**Actuation.** Map each load `id` to a switch (or a script pair) in the integration options. Act
+declaratively and on changes only: `off→on` turns the entity on, `on→off` turns it off, and a repeated
+identical state causes no write. A load whose `id` disappears from the list is released without a
+write. When the service is unreachable or returns an error, keep the last state; never switch a load
+off because communication was lost. Verify the result by reading the entity state back, as the adapter
+contract requires for the battery.
+
+**Measured power.** For a load with `reports_power: true`, map a power sensor (W) to the load `id` and
+send its fresh value in every exchange as `load_power_w[id]`. Apply the same freshness rules as for the
+other measurements: a stale, `unknown` or `unavailable` sensor means the key is omitted for that
+exchange, never sent as `0`. A fresh `0` is a valid measurement. Values are whole or decimal W,
+0–50 000. The service uses the value only while it has the load switched on and shows it on the
+customer's HEMS page within one exchange; a value far above the rated power is treated as a
+misconnected sensor and discarded. The response carries no acknowledgement of the value; status 200
+means the whole request was accepted.
+
 ---
 
 When a change on the service side affects the client, a pull request against `docs/PROTOCOL.md`
