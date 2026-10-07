@@ -15,15 +15,17 @@ async def test_successful_script_receipt():
         return {**data, "verified": True, "readback_at": time.time(), "readback": {"mode": 3}}
 
     adapter = ScriptAdapter(
-        SimpleNamespace(services=SimpleNamespace(async_call=call)), "script.apply", "script.auto", ["pause"]
+        SimpleNamespace(services=SimpleNamespace(async_call=call)), "script.apply", ["pause"]
     )
-    await adapter.execute("pause", 0, "token")
+    receipt = await adapter.execute("pause", 0, "token")
+    assert receipt["token"] == "token"
+    assert receipt["command"] == "pause"
 
 
 async def test_unsupported_action_never_calls_service():
     call = AsyncMock()
     adapter = ScriptAdapter(
-        SimpleNamespace(services=SimpleNamespace(async_call=call)), "script.apply", "script.auto", ["pause"]
+        SimpleNamespace(services=SimpleNamespace(async_call=call)), "script.apply", ["pause"]
     )
     with pytest.raises(VerificationError):
         await adapter.execute("export", 1000, "token")
@@ -41,7 +43,7 @@ async def test_cancel_requests_script_stop():
             await asyncio.Event().wait()
 
     adapter = ScriptAdapter(
-        SimpleNamespace(services=SimpleNamespace(async_call=call)), "script.apply", "script.auto", ["pause"]
+        SimpleNamespace(services=SimpleNamespace(async_call=call)), "script.apply", ["pause"]
     )
     task = asyncio.create_task(adapter.execute("pause", 0, "token"))
     await entered.wait()
@@ -54,7 +56,7 @@ async def test_cancel_requests_script_stop():
 async def test_service_errors_are_sanitized_even_if_stop_fails():
     call = AsyncMock(side_effect=RuntimeError("private device credential"))
     adapter = ScriptAdapter(
-        SimpleNamespace(services=SimpleNamespace(async_call=call)), "script.apply", "script.auto", ["pause"]
+        SimpleNamespace(services=SimpleNamespace(async_call=call)), "script.apply", ["pause"]
     )
     with pytest.raises(VerificationError, match="^adapter_failed$"):
         await adapter.execute("pause", 0, "token")

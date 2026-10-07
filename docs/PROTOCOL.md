@@ -8,7 +8,7 @@ HTTPS POST to the configured endpoint, with certificate validation and redirects
 
 The service also accepts an optional `load_power_w` object in the same request: `{"<load id>": watts}`, keyed by the `id` of a `loads[]` entry with `kind: "deferrable"`. Values are nonnegative W in the range 0–50 000, at most 10 entries. `0` is a real measurement (the load draws nothing); omit the key or send `null` when no measurement is available. A list or a scalar instead of an object, a negative value, a value above 50 000, more than 10 entries or a non-numeric value rejects the whole request with status 422, including the battery telemetry in it. Keys that do not match one of the account's loads are ignored. The value is used only for loads whose entry carries `reports_power: true`, and only for the exchange it arrives in: the service does not carry a load measurement over to the next exchange. Charger power is never sent here; it belongs in `ev_power_w` or `ev_power_by_uid`. This alpha does not send `load_power_w`.
 
-No key is sent in the body. Missing measurements are not fabricated as zero. If required data is stale, the client stops submitting measurements and enters local recovery. Optional stale EV fields are omitted.
+No key is sent in the body. Missing measurements are not fabricated as zero. If required data is stale, the client stops submitting measurements and reports the local observation error. Optional stale EV fields are omitted.
 
 The client sends only validated measurements and does not use `heartbeat: true`. Measurement freshness is checked locally before submission.
 
@@ -16,9 +16,9 @@ The client sends only validated measurements and does not use `heartbeat: true`.
 
 The client checks HA's existing state cache every five seconds; it does not poll inverter registers. Healthy telemetry exchanges are scheduled every 20 seconds, additionally at quarter-hour boundaries. Measurement changes of at least 200 W or 1 percentage point SOC also qualify, with a 20-second minimum spacing; quarter boundaries bypass it. Failed exchanges back off for 60 seconds, so failure backoff can postpone a quarter-boundary request. `command_interval_seconds` is validated and exposed as response metadata; it does not change the telemetry interval.
 
-A received effective command is applied once it passes validation and recovery gates. Repeated commands refresh communication without rewriting device settings. The cadence above describes this client's current implementation, not a requirement for how the service schedules decisions.
+A received effective command is passed once to the configured adapter after validation. Repeated commands refresh communication without rewriting device settings. Adapter retries, hardware fallback and device policy are outside this protocol. The cadence above describes this client's current implementation, not a requirement for how the service schedules decisions.
 
-Connection display: successful exchange age under 150 s = connected, 150–600 s = warning, 600 s or more = disconnected. These are local exchange ages, not a query of backend connection state. Local control fallback begins at 180 seconds of failed communication or immediately for invalid required input/response.
+Connection display: successful exchange age under 150 s = connected, 150–600 s = warning, 600 s or more = disconnected. These are local exchange ages, not a query of backend connection state. Failed communication or invalid input is reported locally; it does not trigger a hardware fallback command.
 
 ## Response
 
@@ -39,7 +39,7 @@ Known actions: charge, chargesolar, selfconsumption, sellsolar, pause, export, p
 
 For selfconsumption, `power_kw` is the maximum battery discharge contribution, not a forced output. The client passes the action and ceiling unchanged to the adapter (converted to W), independently of EV telemetry. An explicit zero blocks discharge; an omitted ceiling is rejected. Device-specific execution belongs in adapter scripts.
 
-The Decision sensor exposes `command_supported` and `supported_commands`. During active control an unsupported action causes verified Auto recovery and the local error `unsupported_adapter_command`; it is not repeatedly attempted. Telemetry continues when measurements are valid. This is local feedback only: the request currently contains no execution acknowledgement for the service.
+The Decision sensor exposes `command_supported` and `supported_commands`. During active control an unsupported action reports the local error `unsupported_adapter_command` without changing hardware; it is not repeatedly attempted. Telemetry continues when measurements are valid. This is local feedback only: the request currently contains no execution acknowledgement for the service.
 
 Each `loads[]` entry carries `id` (string, unique within the list), `kind` (`"ev"` or `"deferrable"`), `name` (string, for display), `action`, `power_kw`, `power_w` (the same value in W) and `reason` (free text for display and logs; never parse it). For `kind: "ev"` the action is `charge` or `stop`, with `current_a`, `target_pct` and the optional `uid` described below. For `kind: "deferrable"` the action is `on` or `off`; `power_kw`/`power_w` is the load's configured rated power, and `reports_power` (boolean) says whether the service uses a measured `load_power_w` value for this load. A deferrable load has no `uid`; its `id` is a 32-character hexadecimal string assigned when the load was created and is the key to use in `load_power_w`. Additional informational fields may appear in an entry and must be ignored.
 
@@ -57,4 +57,4 @@ A fresh PV reading of 0 W is valid at night. An unavailable PV source is not con
 
 HA's `last_reported` says when an entity reported, not when a remote device physically sampled. Configure upstream integrations to expose truthful observations. EV SOC has no client-side timeout or timestamp selector. Its source integration owns freshness and must mark unusable values unknown/unavailable; numeric values in 0–100% are accepted regardless of age. Legacy EV timeout/timestamp options are ignored. Required battery/grid/PV measurements retain their age checks. The generic client cannot detect an upstream integration repeatedly publishing cached data as fresh.
 
-Decisions expire after 90 seconds for new writes. A previously verified stable configuration remains in place until replaced or fallback is required. A saved decision is never replayed after restart; only desired operation is persisted.
+Decisions expire after 90 seconds for new writes. A previously verified stable configuration remains in place until replaced by a local adapter or other controller. A saved decision is never replayed after restart; only desired operation is persisted.

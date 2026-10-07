@@ -46,7 +46,7 @@
     "step": {
       "init": {
         "title": "Measurement sources",
-        "description": "Saving options reloads the integration. Active control returns to Auto and re-enters recovery.\n\nNote: HEMS does not check the age of the EV state of charge. Ensure the source integration keeps it current and marks it unavailable when it cannot be used.",
+        "description": "Saving options reloads the integration. The client does not change hardware settings during reload; local adapter policy owns any fallback.\n\nNote: HEMS does not check the age of the EV state of charge. Ensure the source integration keeps it current and marks it unavailable when it cannot be used.",
         "data": {
           "soc_entity": "Battery SOC",
           "grid_entity": "Grid power",
@@ -63,14 +63,13 @@
         "description": "Leave empty for observation only. Scripts must implement ordered writes and independent hardware readback according to the repository's adapter contract. Select only verified supported commands.",
         "data": {
           "apply_script": "Apply and verify script",
-          "auto_script": "Restore and verify Auto script",
           "commands": "Supported commands"
         }
       }
     },
     "error": {
       "missing_solar": "Select at least one PV production source.",
-      "incomplete_adapter": "Select both scripts and at least one supported command, or clear all adapter fields."
+      "incomplete_adapter": "Select an apply script and at least one supported command, or clear all adapter fields."
     }
   },
   "entity": {
@@ -95,11 +94,11 @@
           "starting": "Starting",
           "observing": "Observing",
           "stopped": "Stopped",
-          "recovering": "Recovering",
           "observation_error": "Measurement or communication error",
-          "restoring_auto": "Restoring Auto",
           "applying": "Applying command",
-          "settings_verified": "Settings verified"
+          "settings_verified": "Settings verified",
+          "adapter_failed": "Adapter failed",
+          "verification_failed": "Adapter verification failed"
         }
       },
       "connection": {
@@ -127,7 +126,7 @@
   },
   "exceptions": {
     "adapter_required": {
-      "message": "Configure the apply/Auto scripts and supported commands before enabling control."
+      "message": "Configure an apply script and supported commands before enabling control."
     }
   },
   "selector": {

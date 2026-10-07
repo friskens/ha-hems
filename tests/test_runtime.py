@@ -4,7 +4,7 @@ import asyncio
 import importlib
 import sys
 import types
-from unittest.mock import AsyncMock
+from unittest.mock import ANY, AsyncMock
 
 import pytest
 
@@ -41,29 +41,12 @@ def runtime(monkeypatch):
     return result
 
 
-async def test_repeated_stale_data_does_not_cancel_auto(runtime):
+async def test_observation_failure_never_writes_auto(runtime):
     runtime.recovery.requested = True
-    runtime._owned = True
+    runtime.decision = Decision("pause", 0, 1000)
     await runtime.fail("stale")
-    gate = asyncio.Event()
-    runtime.adapter.execute.side_effect = lambda *args: None
-
-    async def wait_for_auto(*args):
-        await gate.wait()
-
-    runtime.adapter.execute.side_effect = wait_for_auto
-    runtime.drive()
-    await asyncio.sleep(0)
-    task = runtime._write_task
-    await runtime.fail("stale")
-    await runtime.fail("stale")
-    assert not task.cancelled() and not task.done()
-    gate.set()
-    await task
-    assert not runtime.recovery.restore_pending
-    await runtime.fail("stale")
-    assert not runtime.recovery.restore_pending  # Already verified Auto is left alone.
-    assert runtime.recovery.requested
+    assert runtime.status == "observation_error"
+    runtime.adapter.execute.assert_not_awaited()
 
 
 async def test_identical_decision_does_not_write_again(runtime):
@@ -95,25 +78,29 @@ async def test_ev_changes_do_not_remap_action_but_cap_changes_trigger_writes(run
     assert runtime.adapter.execute.await_count == 2
 
 
-async def test_write_failure_recovers_without_clearing_intent(runtime):
+async def test_write_failure_preserves_pause_without_auto_fallback(runtime):
     from custom_components.hems.adapter import VerificationError
 
     runtime.recovery.requested = True
-    runtime.adapter.execute.side_effect = VerificationError("failed")
-    await runtime.apply(Decision("export", 2, 1000))
-    assert runtime.recovery.requested and runtime.recovery.restore_pending
-    assert runtime.recovery.ready_after == 1300
+    decision = Decision("pause", 0, 1000)
+    runtime.decision = decision
+    runtime.adapter.execute.side_effect = VerificationError("verification_failed")
+    await runtime.apply(decision)
+    assert runtime.recovery.requested
+    assert runtime.decision == decision
+    assert runtime.recovery.failed == decision.effective
+    assert runtime.status == "verification_failed"
+    runtime.adapter.execute.assert_awaited_once_with("pause", 0, ANY)
+    runtime.drive()
+    runtime.adapter.execute.assert_awaited_once()
 
 
 async def test_manual_stop_wins(runtime):
     runtime.recovery.requested = True
-    runtime._owned = True
     runtime.schedule_tick = lambda _: None
     await runtime.request(False)
-    assert not runtime.recovery.requested and runtime.recovery.restore_pending
-    runtime.drive()
-    await runtime._write_task
-    assert not runtime._owned
+    assert not runtime.recovery.requested
+    runtime.adapter.execute.assert_not_awaited()
     assert runtime.status == "stopped"
 
 
@@ -123,12 +110,12 @@ async def test_observer_never_writes(runtime):
     assert runtime._write_task is None
 
 
-async def test_restart_keeps_desired_run_and_requires_auto(runtime):
-    runtime.store.async_load.return_value = {"requested": True, "owned": True}
+async def test_restart_keeps_desired_run_without_hardware_fallback(runtime):
+    runtime.store.async_load.return_value = {"requested": True}
     runtime.schedule_tick = lambda _: None
     await runtime.start()
-    assert runtime.recovery.requested and runtime.recovery.pending
-    assert runtime.recovery.restore_pending
+    assert runtime.recovery.requested
+    runtime.adapter.execute.assert_not_awaited()
 
 
 async def test_telemetry_continues_while_actuator_waits(runtime, monkeypatch):
@@ -156,26 +143,23 @@ async def test_command_interval_does_not_delay_telemetry(runtime, monkeypatch):
     assert runtime.decision.interval == 300
 
 
-async def test_unsupported_command_restores_auto_once_and_remains_visible(runtime, monkeypatch):
+async def test_unsupported_command_remains_visible_without_auto_fallback(runtime, monkeypatch):
     module = sys.modules["custom_components.hems.runtime"]
     sample = {"soc": 50, "grid_power": 0, "solar_power": 0, "battery_power": 0}
     monkeypatch.setattr(module, "collect", lambda *args: (sample, []))
     runtime.client.exchange = AsyncMock(return_value=Decision("zeroexport", 0, 1000))
     runtime.recovery.requested = True
-    runtime._owned = True
     runtime.last_success = 990
     await runtime.tick()
-    await runtime._write_task
     for stamp in (1020, 1040, 1060, 1080):
         monkeypatch.setattr(module.time, "time", lambda: stamp)
         await runtime.tick()
     assert runtime.command_supported is False
     assert runtime.error == "unsupported_adapter_command"
-    assert runtime.status == "recovering"
+    assert runtime.status == "adapter_failed"
     assert runtime.recovery.requested
-    runtime.adapter.execute.assert_awaited_once()
+    runtime.adapter.execute.assert_not_awaited()
     assert runtime.client.exchange.await_count == 5
-    assert runtime.adapter.execute.call_args.args[0] == "auto"
 
 
 async def test_failed_exchange_backs_off_then_resumes_twenty_second_cadence(runtime, monkeypatch):

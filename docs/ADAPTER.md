@@ -1,12 +1,12 @@
 # Device adapter contract
 
-This alpha calls public Home Assistant script services. It never imports another integration's private Python objects. Select an apply script, an Auto script and an explicit list of supported actions in integration options. Both scripts must return a response; use the script service directly, not `script.turn_on`.
+This alpha calls public Home Assistant script services. It never imports another integration's private Python objects. Select an apply script and an explicit list of supported actions in integration options. The script must return a response; use the script service directly, not `script.turn_on`.
 
 Inputs supplied to both scripts:
 
 | Field | Meaning |
 | --- | --- |
-| `command` | HEMS action, or `auto` for recovery |
+| `command` | HEMS action supplied as the desired state |
 | `power_w` | Nonnegative target in W; zero for no-target modes |
 | `token` | Unique request identifier; echo unchanged |
 
@@ -26,7 +26,7 @@ readback:
 
 Only set `verified: true` after comparing fresh device values with the requested settings, including relevant mode and limits. A successful HA service call, optimistic entity state, echoed request or old cache is not confirmation. The client validates receipt identity and timestamp; the **script is responsible for interpreting hardware readback truthfully**.
 
-The timeout is 120 seconds. On timeout/cancellation the client requests `script.turn_off` before recovery. Use dedicated scripts with a single execution path and no background `script.turn_on` children or detached writers; cancelling a parent cannot stop external scheduled work. Hardware or transport failure can prevent both cancellation and Auto restoration. Device-side watchdogs, where available, are still necessary.
+The timeout is 120 seconds. On timeout/cancellation the client requests `script.turn_off` for the in-flight adapter script only. Use dedicated scripts with a single execution path and no background `script.turn_on` children or detached writers; cancelling a parent cannot stop external scheduled work. Hardware or transport failure can prevent cancellation. Device-side watchdogs, retries and any local Auto fallback, where needed, are adapter policy.
 
 ## Action semantics
 
@@ -41,13 +41,12 @@ The timeout is 120 seconds. On timeout/cancellation the client requests `script.
 | peakshaving | Requires a device-specific local grid-limit control loop; do not advertise unless implemented |
 | zeroexport | Requires actual site export limiting; blocking the battery alone is insufficient |
 | observe | The runtime sends no actuator command and leaves existing settings unchanged |
-| auto | Clear controls owned by this adapter and restore local autonomous behavior |
 
 `pause`, `sellsolar` and `zeroexport` ignore changing response watts for deduplication. A changed selfconsumption ceiling is a new effective command. Supported actions must match these semantics; do not tick every action merely because its name is recognised.
 
-No SOC min/max is passed to scripts. Do not add unsolicited SOC writes. Do not silently convert an unsupported action into a different action: signal a failure and let Auto recovery handle it.
+No SOC min/max is passed to scripts. Do not add unsolicited SOC writes. Do not silently convert an unsupported action into a different action: return a failure receipt. The generic client does not issue `auto` or any other fallback command; if an adapter needs Auto after a local failure, that is its own explicitly documented device policy.
 
-An action outside the configured capability list is reported as `unsupported_adapter_command` during active control. The client restores Auto once and waits for a supported decision, while retaining desired operation and continuing valid telemetry. The Decision sensor exposes capability support even in observation mode. No execution acknowledgement is sent to the service by this version.
+An action outside the configured capability list is reported as `unsupported_adapter_command` during active control. The client retains the desired decision and continues valid telemetry without changing hardware. The Decision sensor exposes capability support even in observation mode. The adapter receipt is exposed locally in HA; no execution acknowledgement is sent to the HEMS service by this version because its provider contract has no such field.
 
 ### Self-consumption and EV charging
 
@@ -66,12 +65,8 @@ Adapters advertising selfconsumption must implement this ceiling contract.
 Existing adapters that always map it to unrestricted Auto must be updated before
 enabling this version. No device-specific adapter is bundled.
 
-## Recovery sequence
+## Failure and ownership boundary
 
-1. Persist desired operation and ownership before a write.
-2. On a fault, stop the active script and request verified Auto. Repeated invalid samples do not repeatedly cancel this restoration.
-3. Retry unconfirmed Auto every 60 seconds, retaining desired operation.
-4. Require three successful exchanges spanning at least 60 seconds, a decision younger than 90 seconds, and no gaps of 120 seconds or more in the good sequence.
-5. After a write/verification fault also wait at least 300 seconds, then retry the latest fresh decision.
+The client persists only whether control was requested. It never persists and replays an old hardware decision after restart. On a new, fresh HEMS decision it calls the adapter once. A verified receipt records `settings_verified`; an adapter/service failure records `adapter_failed`; an invalid or missing receipt records `verification_failed`. The desired HEMS decision remains visible in all cases.
 
-Manual stop clears desired operation and restores Auto if settings were owned. Restart with desired operation enabled always re-enters recovery rather than replaying an old command. The control switch remains on during recovery because it represents intent; the Execution sensor shows actual progress.
+The client does not send `auto`, retry a failed hardware write, or decide a fallback mode. Those actions require device-specific knowledge and belong in the adapter. Manual stop cancels an in-flight adapter script and prevents further client commands; it does not alter hardware settings.

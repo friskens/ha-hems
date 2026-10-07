@@ -22,8 +22,8 @@ Proposal:
 
 ## 2. An invalid load entry should not stop the battery decision
 
-Today a single entry in `loads[]` that fails validation rejects the whole response, and the client
-falls back to Auto. Since loads are not actuated in the alpha, this puts battery control at risk
+Today a single entry in `loads[]` that fails validation rejects the whole response. A generic
+hardware fallback would put battery control at risk, since loads are not actuated in the alpha,
 for no benefit.
 
 Proposal: validate `loads[]` per entry. Log and skip an invalid entry; still apply the battery

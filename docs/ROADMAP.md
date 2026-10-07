@@ -14,7 +14,7 @@ Config flow, source selection/sign conversion, header authentication, bounded JS
 
 ## Follow-up features
 
-- An optional Fronius adapter through stable supported APIs, with explicit capability/version checks and no private integration imports.
+- Optional brand-specific reference adapters (for example Fronius) through stable supported APIs, with explicit capability/version checks, no private integration imports, and no bundled inverter driver.
 - Explicit load-ID mapping and verified on/off behavior for deferrable loads, including daily budgets and source freshness.
 - EV charger adapter and actual charging verification; EV SOC telemetry already works independently.
 - Provider capability discovery and richer load decision diagnostics.

@@ -46,7 +46,7 @@
     "step": {
       "init": {
         "title": "Mätkällor",
-        "description": "När du sparar laddas integrationen om. Aktiv styrning återgår till Auto och startar återhämtningen.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
+        "description": "När du sparar laddas integrationen om. Klienten ändrar inte hårdvarans inställningar vid omladdning; lokal adapterpolicy äger eventuell fallback.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
         "data": {
           "soc_entity": "Batteriets laddnivå",
           "grid_entity": "Näteffekt",
@@ -63,14 +63,13 @@
         "description": "Lämna tomt för enbart observation. Skripten måste skriva i rätt ordning och läsa tillbaka hårdvarans faktiska inställningar enligt adapterkontraktet i repot. Välj bara verifierade kommandon.",
         "data": {
           "apply_script": "Skript för att verkställa och verifiera",
-          "auto_script": "Skript för att återställa och verifiera Auto",
           "commands": "Kommandon som stöds"
         }
       }
     },
     "error": {
       "missing_solar": "Välj minst en sensor för solproduktion.",
-      "incomplete_adapter": "Välj båda skripten och minst ett kommando, eller töm alla adapterfält."
+      "incomplete_adapter": "Välj ett skript för verkställande och minst ett kommando, eller töm alla adapterfält."
     }
   },
   "entity": {
@@ -95,11 +94,11 @@
           "starting": "Startar",
           "observing": "Observerar",
           "stopped": "Stoppad",
-          "recovering": "Återhämtar",
           "observation_error": "Mät- eller kommunikationsfel",
-          "restoring_auto": "Återställer Auto",
           "applying": "Verkställer kommando",
-          "settings_verified": "Inställningar verifierade"
+          "settings_verified": "Inställningar verifierade",
+          "adapter_failed": "Adapterfel",
+          "verification_failed": "Adapterns verifiering misslyckades"
         }
       },
       "connection": {
@@ -127,7 +126,7 @@
   },
   "exceptions": {
     "adapter_required": {
-      "message": "Konfigurera skripten för styrning och Auto samt kommandon som stöds innan styrningen aktiveras."
+      "message": "Konfigurera ett skript för verkställande och kommandon som stöds innan styrningen aktiveras."
     }
   },
   "selector": {

@@ -10,11 +10,11 @@ EXECUTION_STATES = [
     "starting",
     "observing",
     "stopped",
-    "recovering",
     "observation_error",
-    "restoring_auto",
     "applying",
     "settings_verified",
+    "adapter_failed",
+    "verification_failed",
 ]
 
 
@@ -69,10 +69,10 @@ class HemsSensor(HemsEntity, SensorEntity):
             return {
                 "error": r.error,
                 "requested": r.recovery.requested,
-                "auto_pending": r.recovery.restore_pending,
-                "retry_after": r.recovery.ready_after,
                 "invalid_fields": r.invalid,
                 "verified_effective_command": r.recovery.verified,
+                "failed_effective_command": r.recovery.failed,
+                "adapter_receipt": r.last_receipt,
                 "command_supported": r.command_supported,
                 "telemetry_interval_seconds": r.interval,
             }

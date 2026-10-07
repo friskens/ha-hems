@@ -104,31 +104,24 @@ def test_collect_never_substitutes_zero_and_sums_solar():
     assert "solar_power" not in collect(options, states.get, 130)[0]
 
 
-def test_recovery_requires_auto_and_fresh_sequence():
+def test_recovery_tracks_requested_and_failed_effective_command():
     recovery = Recovery()
     recovery.request(True, 100)
-    for stamp in (100, 130, 160):
-        recovery.good(stamp)
-    decision = Decision("pause", 0, 160)
-    assert not recovery.can_resume(160, decision)
-    recovery.restore_pending = False
-    assert recovery.can_resume(160, decision)
-    assert not recovery.can_resume(250, decision)
-    recovery.fault(160, control=True)
-    recovery.restore_pending = False
-    for stamp in (400, 430, 460):
-        recovery.good(stamp)
-    assert not recovery.can_resume(459, Decision("pause", 0, 459))
-    assert recovery.can_resume(460, Decision("pause", 0, 460))
+    assert recovery.requested
+    recovery.failed = ("pause", 0)
+    assert recovery.failed == ("pause", 0)
     recovery.request(False, 460)
-    assert not recovery.can_resume(460, decision)
+    assert not recovery.requested
+    assert recovery.failed is None
 
 
-def test_gap_resets_recovery_sequence():
+def test_new_control_request_clears_adapter_outcomes():
     recovery = Recovery()
-    recovery.good(100)
-    recovery.good(230)
-    assert recovery.good_count == 1
+    recovery.verified = ("pause", 0)
+    recovery.failed = ("export", 1000)
+    recovery.request(True, 100)
+    assert recovery.verified is None
+    assert recovery.failed is None
 
 
 def test_receipt_is_bound_to_request_and_fresh_readback():

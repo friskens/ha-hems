@@ -2,7 +2,9 @@
 
 ## 0.1.0a7
 
-- Document the optional `load_power_w` request field and the fields of `loads[]` entries, including `on`/`off` for deferrable loads and `reports_power`; add proposal 5 on deferrable-load actuation and measured power. No client change; this alpha does not actuate loads and does not send `load_power_w`.
+- Document the optional `load_power_w` request field and the fields of `loads[]` entries, including `on`/`off` for deferrable loads and `reports_power`; add proposal 5 on deferrable-load actuation and measured power. This alpha does not actuate loads and does not send `load_power_w`.
+- Keep HEMS Client hardware-neutral: adapter failures retain the HEMS desired state and report receipt status locally; the client no longer issues an automatic `auto` fallback or retry command.
+- Add a documented Fronius GEN24 adapter example with a public apply/verify-script shape and no site-specific entities, registers or limits.
 
 ## 0.1.0a6
 

@@ -10,6 +10,10 @@ from .const import WRITE_TIMEOUT
 class VerificationError(Exception):
     """Actuator could not independently confirm the requested configuration."""
 
+    def __init__(self, code, receipt=None):
+        super().__init__(code)
+        self.receipt = receipt
+
 
 def validate_receipt(receipt, command, power_w, token, started, now):
     """A script acknowledgement or optimistic entity state is not a readback."""
@@ -27,12 +31,12 @@ def validate_receipt(receipt, command, power_w, token, started, now):
         or not isinstance(receipt.get("readback"), dict)
         or not receipt["readback"]
     ):
-        raise VerificationError("readback_mismatch")
+        raise VerificationError("verification_failed", receipt if isinstance(receipt, dict) else None)
 
 
 class ScriptAdapter:
-    def __init__(self, hass, apply_script, auto_script, commands):
-        self.hass, self.apply_script, self.auto_script = hass, apply_script, auto_script
+    def __init__(self, hass, apply_script, commands):
+        self.hass, self.apply_script = hass, apply_script
         self.commands = set(commands)
 
     async def stop_script(self, entity):
@@ -50,9 +54,9 @@ class ScriptAdapter:
         return True
 
     async def execute(self, command, power_w, token):
-        if command != "auto" and command not in self.commands:
+        if command not in self.commands:
             raise VerificationError("unsupported_adapter_command")
-        entity = self.auto_script if command == "auto" else self.apply_script
+        entity = self.apply_script
         if not entity or not entity.startswith("script."):
             raise VerificationError("missing_adapter_script")
         started = time.time()
@@ -67,7 +71,7 @@ class ScriptAdapter:
                     return_response=True,
                 )
         except asyncio.CancelledError:
-            # Stop the independent HA script before a recovery Auto can run.
+            # Stop the in-flight adapter script; never issue a hardware fallback.
             await asyncio.shield(self.stop_script(entity))
             raise
         except Exception as err:
@@ -75,3 +79,4 @@ class ScriptAdapter:
             await self.stop_script(entity)
             raise VerificationError("adapter_failed") from err
         validate_receipt(result, command, power_w, token, started, time.time())
+        return result

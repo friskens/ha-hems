@@ -3,9 +3,11 @@
 
 A community Home Assistant integration for the HEMS service at [PowerGravio](https://powergravio.se), with sensor configuration and actionable sensors exposed.
 
-**0.1.0a4 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. This is not an official PowerGravio or Home Assistant integration.
+**0.1.0a7 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. This is not an official PowerGravio or Home Assistant integration.
 
-[Svenska](docs/INSTALL_SV.md) · [Adapter contract](docs/ADAPTER.md) · [Lessons learned](docs/LESSONS_LEARNED.md) · [Protocol](docs/PROTOCOL.md) · [Roadmap](docs/ROADMAP.md)
+HEMS Client contains no inverter driver, Modbus implementation or device-specific fallback policy. A Fronius, GEN24 or other-brand script is a separate local adapter example, not a capability supplied by this integration.
+
+[Svenska](docs/INSTALL_SV.md) · [Adapter contract](docs/ADAPTER.md) · [Fronius GEN24 reference](docs/FRONIUS_GEN24_REFERENCE.md) · [Lessons learned](docs/LESSONS_LEARNED.md) · [Protocol](docs/PROTOCOL.md) · [Roadmap](docs/ROADMAP.md)
 
 ## What it does
 
@@ -41,11 +43,11 @@ Invert grid/battery signs in options when needed. Select non-overlapping PV enti
 
 Required observations expire after 120 seconds. EV SOC has no client-side age limit: its source integration must keep it current and mark unusable readings unavailable. Repeatedly republishing a cached sensor value must not be mistaken for a fresh device measurement: see [protocol and freshness](docs/PROTOCOL.md).
 
-## Control and recovery
+## Control and adapter status
 
-The control switch is **off by default**. With no adapter configured, the integration only sends telemetry and displays decisions. Starting control first calls the Auto script and verifies its receipt. It then waits for at least three successful exchanges spanning at least 60 seconds before applying a fresh supported decision.
+The control switch is **off by default**. With no adapter configured, the integration only sends telemetry and displays decisions. With an adapter configured, a fresh supported HEMS decision is passed to that adapter as the desired state.
 
-Invalid required measurements or responses, authentication failure, and a 180-second communication outage initiate Auto recovery. A failed write/readback adds a five-minute retry delay. Auto restoration retries every 60 seconds until confirmed. These faults do not silently disable the user's requested operation. Turning the switch off cancels control and restores Auto when this integration owns the settings.
+Invalid measurements, responses or communication are shown as observation errors. A failed adapter write/readback is shown as an adapter or verification failure together with receipt metadata. The client keeps the HEMS decision visible as the desired state and does **not** issue a generic hardware fallback or retry command. Turning the switch off stops further client commands; local device policy, including any Auto fallback, belongs to the adapter.
 
 All hardware control depends on the configured scripts and their independent readback. `settings_verified` means settings were acknowledged through that contract, **not** that physical power exactly equals a target. Hardware limits remain the inverter/BMS's responsibility. Do not run two independent battery controllers at once.
 
