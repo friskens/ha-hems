@@ -1,6 +1,7 @@
 import asyncio
+import sys
 import time
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -30,6 +31,40 @@ async def test_unsupported_action_never_calls_service():
     with pytest.raises(VerificationError):
         await adapter.execute("export", 1000, "token")
     call.assert_not_called()
+
+
+async def test_registered_script_entity_resolves_to_its_service_id(monkeypatch):
+    registry = SimpleNamespace(
+        async_get=lambda entity_id: SimpleNamespace(unique_id="example_adapter")
+    )
+    entity_registry = SimpleNamespace(async_get=lambda hass: registry)
+    homeassistant = ModuleType("homeassistant")
+    helpers = ModuleType("homeassistant.helpers")
+    helpers.entity_registry = entity_registry
+    monkeypatch.setitem(sys.modules, "homeassistant", homeassistant)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers", helpers)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", entity_registry)
+
+    async def receipt(*args, **kwargs):
+        return {
+            "verified": True,
+            "token": "token",
+            "command": "pause",
+            "power_w": 0,
+            "readback_at": time.time(),
+            "readback": {"mode": "verified"},
+        }
+
+    call = AsyncMock(side_effect=receipt)
+    adapter = ScriptAdapter(
+        SimpleNamespace(services=SimpleNamespace(async_call=call, has_service=lambda *args: True)),
+        "script.friendly_adapter_name",
+        ["pause"],
+    )
+
+    await adapter.execute("pause", 0, "token")
+
+    assert call.await_args.args[:2] == ("script", "example_adapter")
 
 
 async def test_cancel_requests_script_stop():

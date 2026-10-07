@@ -39,6 +39,23 @@ class ScriptAdapter:
         self.hass, self.apply_script = hass, apply_script
         self.commands = set(commands)
 
+    def service_name(self, entity):
+        """Resolve a selected script entity to its callable script service."""
+        # A user can customize an entity ID in the entity registry. For YAML
+        # scripts, the registry's immutable unique_id remains the script key
+        # used by the direct service, which is required for a response.
+        try:
+            from homeassistant.helpers import entity_registry as er
+        except ImportError:  # Unit tests run without Home Assistant installed.
+            return entity.split(".", 1)[1]
+
+        entry = er.async_get(self.hass).async_get(entity)
+        if entry and isinstance(entry.unique_id, str) and entry.unique_id:
+            service = entry.unique_id.removeprefix("script.")
+            if self.hass.services.has_service("script", service):
+                return service
+        return entity.split(".", 1)[1]
+
     async def stop_script(self, entity):
         try:
             async with asyncio.timeout(15):
@@ -59,13 +76,14 @@ class ScriptAdapter:
         entity = self.apply_script
         if not entity or not entity.startswith("script."):
             raise VerificationError("missing_adapter_script")
+        service = self.service_name(entity)
         started = time.time()
         try:
             async with asyncio.timeout(WRITE_TIMEOUT):
                 # Call the script service directly so failures and return data propagate.
                 result = await self.hass.services.async_call(
                     "script",
-                    entity.split(".", 1)[1],
+                    service,
                     {"command": command, "power_w": power_w, "token": token},
                     blocking=True,
                     return_response=True,

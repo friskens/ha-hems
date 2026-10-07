@@ -1,6 +1,6 @@
 # Device adapter contract
 
-This alpha calls public Home Assistant script services. It never imports another integration's private Python objects. Select an apply script and an explicit list of supported actions in integration options. The script must return a response; use the script service directly, not `script.turn_on`.
+This alpha calls public Home Assistant script services. It never imports another integration's private Python objects. Select an apply-script **entity** and an explicit list of supported actions in integration options. The client resolves a registered script entity through its immutable unique ID, so a user-customized entity ID may differ from the YAML script key/service ID. The script must return a response; use the script service directly, not `script.turn_on`.
 
 Inputs supplied to both scripts:
 
