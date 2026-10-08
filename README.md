@@ -22,7 +22,7 @@ Requires Home Assistant 2025.3 or later. Installation and configuration of 0.1.0
 1. In HACS, add `https://github.com/friskens/ha-hems` as a **custom repository**, category **Integration**.
 2. Enable prereleases if needed and download HEMS Client.
 3. Restart Home Assistant, then add **HEMS Client** under Settings → Devices & services.
-4. Enter the full HTTPS endpoint supplied by your HEMS provider and your API key. Select fresh measurement sensors.
+4. Enter the provider's HTTPS base address or complete endpoint and your API key. A base address automatically uses `/battery`; an explicit path is kept. Select fresh measurement sensors.
 5. Check the reported decisions and measurements in observation mode before configuring control scripts in the integration options.
 
 This repository is not in the HACS default catalogue. 

@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Anslut till HEMS",
-        "description": "Ange leverantörens fullständiga HTTPS-adress. Mätvärden skickas efter installationen; styrningen är avstängd från början.",
+        "description": "Ange leverantörens HTTPS-basadress eller fullständiga endpoint. En basadress får automatiskt /battery. Mätvärden skickas efter installationen; styrningen är avstängd från början.",
         "data": {
           "name": "Namn",
           "endpoint": "HTTPS-adress",
@@ -33,7 +33,7 @@
       }
     },
     "error": {
-      "invalid_endpoint": "Ange en fullständig HTTPS-adress utan inloggningsuppgifter, frågeparametrar eller fragment.",
+      "invalid_endpoint": "Ange en HTTPS-basadress eller endpoint utan inloggningsuppgifter, frågeparametrar eller fragment.",
       "invalid_key": "Ange en API-nyckel.",
       "missing_solar": "Välj minst en sensor för solproduktion."
     },
