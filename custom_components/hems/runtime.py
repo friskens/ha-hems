@@ -100,11 +100,12 @@ class Runtime:
                 await self._write_task
             except asyncio.CancelledError:
                 pass
+            # A cancelled script may have changed hardware before it stopped.
+            # Its previous receipt can no longer verify the desired state.
+            self.recovery.verified = None
 
     async def fail(self, reason):
         self.error = reason
-        if self._write_task and not self._write_task.done():
-            await self.cancel_write()
         self.status = "observation_error"
 
     async def tick(self):
@@ -141,6 +142,8 @@ class Runtime:
                     self.error = None
                 if not self.recovery.requested:
                     self.status = "observing"
+                elif self.recovery.verified == decision.effective:
+                    self.status = "settings_verified"
         if self.recovery.requested and self.command_supported is False:
             self.status, self.error = "adapter_failed", "unsupported_adapter_command"
         self.drive()

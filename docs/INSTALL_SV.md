@@ -29,6 +29,11 @@ Integrationen ändrar aldrig SOC-gränser. Behåll batteritillverkarens och din 
 
 Kontrollsensorn visar önskad drift. Vid tillfälliga fel visar klienten adapter- eller verifieringsfelet men ändrar inte hårdvarans läge. Lokal adapterpolicy äger eventuell retry eller återgång till Auto. Ett manuellt stopp gäller tills du själv slår på igen.
 
+Vid uppgradering från en tidigare alfa ignoreras tidigare `auto_script`,
+`owned` och `restore_pending`. Uppgraderingen skriver inte till hårdvaran.
+Om anläggningen behöver bevakning, retry eller återgång till ett lokalt
+standardläge ska det vara en uttrycklig policy i den lokala adaptern.
+
 Installation via HACS och konfigurering av 0.1.0a3 har kontrollerats i HA 2026.9.3, med testposten lämnad inaktiverad. Se [riktiga konfigurationsbilder](SCREENSHOTS.md). Automatiska tester körs med simulerade HA-tjänster. Ursprungliga installationens erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
 
 Gränssnittet finns på svenska och engelska och följer språkvalet i Home Assistant. Det omfattar inställningar, entitetsnamn, driftlägen, status och felmeddelanden.

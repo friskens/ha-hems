@@ -70,3 +70,11 @@ enabling this version. No device-specific adapter is bundled.
 The client persists only whether control was requested. It never persists and replays an old hardware decision after restart. On a new, fresh HEMS decision it calls the adapter once. A verified receipt records `settings_verified`; an adapter/service failure records `adapter_failed`; an invalid or missing receipt records `verification_failed`. The desired HEMS decision remains visible in all cases.
 
 The client does not send `auto`, retry a failed hardware write, or decide a fallback mode. Those actions require device-specific knowledge and belong in the adapter. Manual stop cancels an in-flight adapter script and prevents further client commands; it does not alter hardware settings.
+
+An adapter that needs a lifecycle policy should use the local control state, the
+Decision sensor's freshness and the Execution sensor to make that policy
+explicit. It may return the equipment to a local default, retry a verified-safe
+write or take another documented local action when control is stopped, a
+decision becomes stale or its own write fails. HEMS Client deliberately has no
+generic `release` or `auto` command: different equipment and sites need
+different safe states.

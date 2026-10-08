@@ -130,6 +130,37 @@ async def test_telemetry_continues_while_actuator_waits(runtime, monkeypatch):
     await runtime.cancel_write()
 
 
+async def test_measurement_failure_does_not_cancel_inflight_write(runtime):
+    runtime._write_task = asyncio.create_task(asyncio.Event().wait())
+    await runtime.fail("measurements_unavailable")
+    assert runtime.status == "observation_error"
+    assert not runtime._write_task.done()
+    await runtime.cancel_write()
+
+
+async def test_cancelled_write_invalidates_previous_verification(runtime):
+    runtime.recovery.verified = ("pause", 0)
+    runtime._write_task = asyncio.create_task(asyncio.Event().wait())
+    await runtime.cancel_write()
+    assert runtime.recovery.verified is None
+
+
+async def test_successful_exchange_restores_verified_status(runtime, monkeypatch):
+    module = sys.modules["custom_components.hems.runtime"]
+    sample = {"soc": 50, "grid_power": 0, "solar_power": 0, "battery_power": 0}
+    decision = Decision("pause", 0, 1000)
+    monkeypatch.setattr(module, "collect", lambda *args: (sample, []))
+    runtime.recovery.requested = True
+    runtime.recovery.verified = decision.effective
+    runtime.decision = decision
+    runtime.status, runtime.error = "observation_error", "measurements_unavailable"
+    runtime.client.exchange = AsyncMock(return_value=decision)
+    await runtime.tick()
+    assert runtime.status == "settings_verified"
+    assert runtime.error is None
+    runtime.adapter.execute.assert_not_awaited()
+
+
 async def test_command_interval_does_not_delay_telemetry(runtime, monkeypatch):
     module = sys.modules["custom_components.hems.runtime"]
     sample = {"soc": 50, "grid_power": 0, "solar_power": 0, "battery_power": 0}
