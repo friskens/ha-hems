@@ -161,6 +161,24 @@ async def test_successful_exchange_restores_verified_status(runtime, monkeypatch
     runtime.adapter.execute.assert_not_awaited()
 
 
+async def test_successful_exchange_restores_previous_failure_status(runtime, monkeypatch):
+    from custom_components.hems.adapter import VerificationError
+
+    module = sys.modules["custom_components.hems.runtime"]
+    sample = {"soc": 50, "grid_power": 0, "solar_power": 0, "battery_power": 0}
+    decision = Decision("pause", 0, 1000)
+    monkeypatch.setattr(module, "collect", lambda *args: (sample, []))
+    runtime.recovery.requested = True
+    runtime.adapter.execute.side_effect = VerificationError("verification_failed")
+    await runtime.apply(decision)
+    await runtime.fail("measurements_unavailable")
+    runtime.client.exchange = AsyncMock(return_value=decision)
+    await runtime.tick()
+    assert runtime.status == "verification_failed"
+    assert runtime.error == "verification_failed"
+    assert runtime.adapter.execute.await_count == 1
+
+
 async def test_command_interval_does_not_delay_telemetry(runtime, monkeypatch):
     module = sys.modules["custom_components.hems.runtime"]
     sample = {"soc": 50, "grid_power": 0, "solar_power": 0, "battery_power": 0}

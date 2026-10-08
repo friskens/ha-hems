@@ -119,9 +119,13 @@ def test_new_control_request_clears_adapter_outcomes():
     recovery = Recovery()
     recovery.verified = ("pause", 0)
     recovery.failed = ("export", 1000)
+    recovery.failed_status = "adapter_failed"
+    recovery.failed_error = "adapter_failed"
     recovery.request(True, 100)
     assert recovery.verified is None
     assert recovery.failed is None
+    assert recovery.failed_status is None
+    assert recovery.failed_error is None
 
 
 def test_receipt_is_bound_to_request_and_fresh_readback():

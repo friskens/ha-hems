@@ -29,6 +29,11 @@ Integrationen ändrar aldrig SOC-gränser. Behåll batteritillverkarens och din 
 
 Kontrollsensorn visar önskad drift. Vid tillfälliga fel visar klienten adapter- eller verifieringsfelet men ändrar inte hårdvarans läge. Lokal adapterpolicy äger eventuell retry eller återgång till Auto. Ett manuellt stopp gäller tills du själv slår på igen.
 
+När styrningen stoppas, kontakten med HEMS saknas eller ett beslut blir för
+gammalt ändrar HEMS Client inte utrustningen. Vill du att anläggningen ska
+återgå till ett särskilt läge, avbryta styrningen eller försöka igen, lägger du
+en uttrycklig regel för det i din lokala adapter eller automation.
+
 Vid uppgradering från en tidigare alfa ignoreras tidigare `auto_script`,
 `owned` och `restore_pending`. Uppgraderingen skriver inte till hårdvaran.
 Om anläggningen behöver bevakning, retry eller återgång till ett lokalt

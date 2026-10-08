@@ -144,6 +144,9 @@ class Runtime:
                     self.status = "observing"
                 elif self.recovery.verified == decision.effective:
                     self.status = "settings_verified"
+                elif self.recovery.failed == decision.effective:
+                    self.status = self.recovery.failed_status
+                    self.error = self.recovery.failed_error
         if self.recovery.requested and self.command_supported is False:
             self.status, self.error = "adapter_failed", "unsupported_adapter_command"
         self.drive()
@@ -177,15 +180,17 @@ class Runtime:
         except VerificationError as err:
             self.last_receipt = err.receipt
             self.recovery.failed = effective
-            self.status = (
+            self.recovery.failed_status = self.status = (
                 "adapter_failed"
                 if str(err) in {"adapter_failed", "missing_adapter_script", "unsupported_adapter_command"}
                 else "verification_failed"
             )
-            self.error = str(err)
+            self.recovery.failed_error = self.error = str(err)
         else:
             self.recovery.verified = effective
             self.recovery.failed = None
+            self.recovery.failed_status = None
+            self.recovery.failed_error = None
             self.last_receipt = receipt
             self.status, self.error = "settings_verified", None
         await self.save()
