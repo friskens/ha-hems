@@ -97,6 +97,43 @@ same inputs and return shape. A local failure policy may call a separate
 `hems_return_auto` script after reporting the failed original command; the
 apply script must not report that fallback as successful verification.
 
+## Optional local fallback automation
+
+HEMS Client never calls a generic fallback. If this installation should return
+to a local standard state after manual stop or a decision that has been stale
+for several minutes, make that choice explicit in a local automation. This
+example returns to the site's `hems_return_auto` script. Replace both entity
+placeholders with this HEMS Client entry's control switch and Decision sensor,
+and replace the script only if the installation uses another safe default.
+
+```yaml
+automation:
+  - alias: HEMS Client — local fallback after stop or stale decision (example)
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: switch.<hems_client_control>
+        to: "off"
+        id: manual_stop
+      - trigger: template
+        value_template: >-
+          {% set received_at = state_attr('sensor.<hems_client_decision>', 'received_at') %}
+          {{ is_state('switch.<hems_client_control>', 'on')
+             and received_at is not none
+             and as_timestamp(now()) - (received_at | float) > 90 }}
+        for: "00:03:00"
+        id: stale_decision
+    actions:
+      - action: script.hems_return_auto
+```
+
+The template becomes true only after the client's 90-second decision freshness
+window has expired, then waits a further three minutes. `hems_return_auto` must
+be idempotent and independently verify the local safe state; it must not be
+configured as the HEMS Client apply script or reported as verification of the
+original HEMS command. A site that should hold its current settings, retry or
+choose another mode should implement that explicit policy instead.
+
 ## Mapping used by this adapter
 
 | HEMS action | Local GEN24 interpretation |

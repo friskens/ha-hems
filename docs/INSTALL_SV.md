@@ -17,6 +17,16 @@ stödja de angivna kommandona innan denna version aktiveras.
 
 HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a7 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md).
 
+## Viktigt vid uppgradering från 0.1.0a4
+
+- Den automatiska återgången till `Auto` är borttagen. Vid manuellt stopp,
+  HEMS-avbrott eller ett gammalt beslut lämnas utrustningen i sitt senaste läge.
+- Tidigare `auto_script`, `owned` och `restore_pending` ignoreras. Uppgraderingen
+  skriver inte till hårdvaran.
+- Innan du uppgraderar en aktiv styrning ska du lägga till och testa en uttrycklig
+  lokal regel i adaptern eller en HA-automation för den säkra åtgärd just din
+  anläggning ska göra i dessa situationer.
+
 1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs.
 2. Installera, starta om HA och lägg till **HEMS Client**.
 3. Ange leverantörens HTTPS-basadress eller fullständiga endpoint och API-nyckel. En basadress får automatiskt `/battery`; en uttrycklig sökväg behålls. Nyckeln skickas endast i `X-Api-Key`.
@@ -34,12 +44,11 @@ gammalt ändrar HEMS Client inte utrustningen. Vill du att anläggningen ska
 återgå till ett särskilt läge, avbryta styrningen eller försöka igen, lägger du
 en uttrycklig regel för det i din lokala adapter eller automation.
 
-Vid uppgradering från en tidigare alfa ignoreras tidigare `auto_script`,
-`owned` och `restore_pending`. Uppgraderingen skriver inte till hårdvaran.
-Om anläggningen behöver bevakning, retry eller återgång till ett lokalt
-standardläge ska det vara en uttrycklig policy i den lokala adaptern.
-
-Installation via HACS och konfigurering av 0.1.0a3 har kontrollerats i HA 2026.9.3, med testposten lämnad inaktiverad. Se [riktiga konfigurationsbilder](SCREENSHOTS.md). Automatiska tester körs med simulerade HA-tjänster. Ursprungliga installationens erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
+Konfigurationsflödet kontrollerades manuellt i den tidigare alfan 0.1.0a3 på HA
+2026.9.3, med testposten lämnad inaktiverad. [Konfigurationsbilderna](SCREENSHOTS.md)
+är därför en historisk UI-referens, inte ett nytt drifttest av denna version.
+Automatiska tester körs med simulerade HA-tjänster. Ursprungliga installationens
+erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
 
 Gränssnittet finns på svenska och engelska och följer språkvalet i Home Assistant. Det omfattar inställningar, entitetsnamn, driftlägen, status och felmeddelanden.
 

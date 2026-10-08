@@ -2,12 +2,17 @@
 
 ## 0.1.0a7
 
+> **Breaking change for active a4 control:** automatic return to `Auto` has
+> been removed. Existing `auto_script`, `owned` and `restore_pending` data is
+> ignored and no migration write is made. Before upgrading an actively
+> controlled installation, add and test an explicit local adapter/automation
+> policy for manual stop, HEMS outage and stale decisions.
+
 - Document the optional `load_power_w` request field and the fields of `loads[]` entries, including `on`/`off` for deferrable loads and `reports_power`; add proposal 5 on deferrable-load actuation and measured power. This alpha does not actuate loads and does not send `load_power_w`.
 - Keep HEMS Client hardware-neutral: adapter failures retain the HEMS desired state and report receipt status locally; the client no longer issues an automatic `auto` fallback or retry command.
 - Add a documented Fronius GEN24 adapter example with a public apply/verify-script shape and no site-specific entities, registers or limits.
 - Resolve a selected script entity through the Home Assistant entity registry so a customized entity ID can still call its YAML script service and return a receipt.
 - Accept a provider HTTPS base address in setup and automatically use `/battery`; an explicitly supplied endpoint path remains unchanged.
-- Do not reuse prior `auto_script`, `owned` or `restore_pending` data on upgrade; the client performs no migration hardware write. Local adapters own any explicit watchdog, retry or default-mode policy.
 - Keep a verified adapter write running across a transient observation failure, clear stale verification when a write is cancelled, and restore `settings_verified` after a successful exchange confirms the already verified effective decision.
 
 ## 0.1.0a6

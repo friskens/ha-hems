@@ -1,12 +1,14 @@
-# Configuration screenshots / Konfigurationsbilder
+# Historical configuration screenshots (0.1.0a3) / Historiska konfigurationsbilder
 
 These are real Home Assistant 2026.9.3 dialogs, captured with HEMS Client
-0.1.0a3 on 2026-09-27. Only the relevant UI area is cropped; the dialogs are
-not mockups. Fields are empty to avoid publishing household configuration or
+0.1.0a3 on 2026-09-27. They are a historical UI reference, not proof of
+current-release commissioning. Only the relevant UI area is cropped; the dialogs
+are not mockups. Fields are empty to avoid publishing household configuration or
 credentials. The frontend language in these captures is English; the integration
 also provides Swedish translations.
 
 Detta är riktiga dialoger från Home Assistant 2026.9.3 med HEMS Client 0.1.0a3.
+De är en historisk UI-referens och inte ett nytt drifttest av aktuell version.
 Bilderna är beskurna till relevant område. Fälten visas tomma för att inte
 publicera privata sensorval eller inloggningsuppgifter. Integrationen har även
 svenska översättningar.

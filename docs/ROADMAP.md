@@ -1,8 +1,16 @@
 # Roadmap
 
-## Included in 0.1.0a1
+## Current alpha scope
 
-Config flow, source selection/sign conversion, header authentication, bounded JSON validation, cadence, decision/status entities, optional EV telemetry, persistent control intent, script receipt contract, recovery and core regression tests.
+0.1.0a7 configures measurement sources and the provider endpoint, sends validated
+telemetry, receives battery decisions and exposes decision, execution and
+connection state. Battery control is opt-in through a local script adapter with
+independent hardware readback. The client has no bundled inverter driver,
+generic fallback or generic retry policy. EV and load data are informational;
+this alpha does not actuate EV chargers or deferrable loads.
+
+See [CHANGELOG](../CHANGELOG.md) for the delivered changes in each alpha rather
+than treating the original a1 scope as the current implementation.
 
 ## Before recommending active use
 
