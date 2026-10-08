@@ -39,7 +39,11 @@ Vid uppgradering från en tidigare alfa ignoreras tidigare `auto_script`,
 Om anläggningen behöver bevakning, retry eller återgång till ett lokalt
 standardläge ska det vara en uttrycklig policy i den lokala adaptern.
 
-Installation via HACS och konfigurering av 0.1.0a3 har kontrollerats i HA 2026.9.3, med testposten lämnad inaktiverad. Se [riktiga konfigurationsbilder](SCREENSHOTS.md). Automatiska tester körs med simulerade HA-tjänster. Ursprungliga installationens erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
+Konfigurationsflödet kontrollerades manuellt i den tidigare alfan 0.1.0a3 på HA
+2026.9.3, med testposten lämnad inaktiverad. [Konfigurationsbilderna](SCREENSHOTS.md)
+är därför en historisk UI-referens, inte ett nytt drifttest av denna version.
+Automatiska tester körs med simulerade HA-tjänster. Ursprungliga installationens
+erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
 
 Gränssnittet finns på svenska och engelska och följer språkvalet i Home Assistant. Det omfattar inställningar, entitetsnamn, driftlägen, status och felmeddelanden.
 

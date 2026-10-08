@@ -1,7 +1,7 @@
 # HEMS Client for Home Assistant
 <img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/67c6c3a7-12d2-45aa-9c0e-488cfe02f8c4" />
 
-A community Home Assistant integration for the HEMS service at [PowerGravio](https://powergravio.se), with sensor configuration and actionable sensors exposed.
+A community Home Assistant integration for the HEMS service at [PowerGravio](https://powergravio.se). It validates local energy measurements, exchanges them with HEMS and exposes the returned decision and execution status in Home Assistant.
 
 **0.1.0a7 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. This is not an official PowerGravio or Home Assistant integration.
 
@@ -11,13 +11,16 @@ HEMS Client contains no inverter driver, Modbus implementation or device-specifi
 
 ## What it does
 
-- Configure the HTTPS endpoint, API key and measurement entities in the HA UI.
-- Expose actionable entities for Home Assistant to use for local control through another Integration
+- Configures the provider HTTPS address, API key and measurement entities in the HA UI.
+- Accepts a provider base address and uses `/battery` automatically; a supplied endpoint path is preserved.
+- Sends validated battery, grid and PV observations to HEMS and displays its decision.
+- Calls an opt-in local adapter script for supported battery commands, with independent hardware readback.
+- Exposes control, decision, execution and connection entities for dashboards and local automations.
 
 
 ## Install through HACS
 
-Requires Home Assistant 2025.3 or later. Installation and configuration of 0.1.0a3 have been checked on HA 2026.9.3 with the test entry left disabled. Live cloud exchanges, hardware control and broader version compatibility still require validation; automated tests exercise the protocol and orchestration with fake HA services. See the [real configuration screenshots](docs/SCREENSHOTS.md).
+Requires Home Assistant 2025.3 or later. The configuration UI was manually checked in the earlier 0.1.0a3 alpha on HA 2026.9.3 with the test entry left disabled; the screenshots are retained as a UI reference. Live cloud exchanges, hardware control and broader version compatibility still require validation. Automated tests exercise the protocol and orchestration with fake HA services.
 
 1. In HACS, add `https://github.com/friskens/ha-hems` as a **custom repository**, category **Integration**.
 2. Enable prereleases if needed and download HEMS Client.
