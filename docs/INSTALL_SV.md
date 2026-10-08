@@ -19,7 +19,7 @@ HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powe
 
 1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs.
 2. Installera, starta om HA och lägg till **HEMS Client**.
-3. Ange leverantörens fullständiga HTTPS-adress och API-nyckel. Nyckeln skickas endast i `X-Api-Key`.
+3. Ange leverantörens HTTPS-basadress eller fullständiga endpoint och API-nyckel. En basadress får automatiskt `/battery`; en uttrycklig sökväg behålls. Nyckeln skickas endast i `X-Api-Key`.
 4. Välj sensorer för batteriets SOC, nätets effekt, batteriets effekt och en eller flera solproduktionssensorer. Nätimport och batteriladdning ska vara positiva; tecknen kan vändas i inställningarna.
 5. Låt styrskriptet vara av medan mätningar och beslut kontrolleras. Ange därefter ett skript för kommando och verifiering samt vilka kommandon just din lokala adapter faktiskt stödjer. HEMS Client innehåller ingen Fronius-, Modbus- eller annan växelriktardrivrutin.
 

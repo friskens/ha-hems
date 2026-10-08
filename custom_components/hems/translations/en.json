@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Connect to HEMS",
-        "description": "Enter your provider's complete HTTPS endpoint. Measurements are sent after setup; device control starts disabled.",
+        "description": "Enter your provider's HTTPS base address or complete endpoint. A base address automatically uses /battery. Measurements are sent after setup; device control starts disabled.",
         "data": {
           "name": "Name",
           "endpoint": "HTTPS endpoint",
@@ -33,7 +33,7 @@
       }
     },
     "error": {
-      "invalid_endpoint": "Use a full HTTPS endpoint without credentials, query parameters or fragment.",
+      "invalid_endpoint": "Use an HTTPS base address or endpoint without credentials, query parameters or fragment.",
       "invalid_key": "Enter an API key.",
       "missing_solar": "Select at least one PV production source."
     },

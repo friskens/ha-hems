@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import math
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from .const import COMMANDS, DEFAULT_INTERVAL
 
@@ -25,13 +25,13 @@ def number(value, field, minimum=None, maximum=None):
 
 
 def endpoint(value):
-    """Only explicit HTTPS endpoints, with no credentials/query/fragment."""
+    """Validate an HTTPS endpoint and default a provider base URL to /battery."""
     try:
+        value = value.strip()
         url = urlsplit(value)
         valid = (
             url.scheme == "https"
             and url.hostname
-            and url.path
             and not url.username
             and not url.password
             and not url.query
@@ -42,6 +42,8 @@ def endpoint(value):
         valid = False
     if not valid:
         raise ProtocolError("invalid_endpoint")
+    if url.path in ("", "/"):
+        return urlunsplit((url.scheme, url.netloc, "/battery", "", ""))
     return value.rstrip("/")
 
 

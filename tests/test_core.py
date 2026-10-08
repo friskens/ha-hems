@@ -54,12 +54,24 @@ def test_load_absence_is_not_off():
         "http://example.com/battery",
         "https://key@example.com/battery",
         "https://example.com/battery?key=secret",
-        "https://example.com",
     ],
 )
 def test_https_endpoint(url):
     with pytest.raises(ProtocolError):
         endpoint(url)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("https://example.com", "https://example.com/battery"),
+        ("https://example.com/", "https://example.com/battery"),
+        (" https://example.com/battery\n", "https://example.com/battery"),
+        ("https://example.com/hems/exchange/", "https://example.com/hems/exchange"),
+    ],
+)
+def test_endpoint_defaults_only_a_provider_base_url(value, expected):
+    assert endpoint(value) == expected
 
 
 def test_cadence_changes_quarters_and_maximum():
