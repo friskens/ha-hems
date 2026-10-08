@@ -64,9 +64,9 @@ def test_https_endpoint(url):
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        ("https://staging.powergravio.se", "https://staging.powergravio.se/battery"),
-        ("https://staging.powergravio.se/", "https://staging.powergravio.se/battery"),
-        ("https://staging.powergravio.se/battery", "https://staging.powergravio.se/battery"),
+        ("https://example.com", "https://example.com/battery"),
+        ("https://example.com/", "https://example.com/battery"),
+        (" https://example.com/battery\n", "https://example.com/battery"),
         ("https://example.com/hems/exchange/", "https://example.com/hems/exchange"),
     ],
 )

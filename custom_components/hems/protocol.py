@@ -27,6 +27,7 @@ def number(value, field, minimum=None, maximum=None):
 def endpoint(value):
     """Validate an HTTPS endpoint and default a provider base URL to /battery."""
     try:
+        value = value.strip()
         url = urlsplit(value)
         valid = (
             url.scheme == "https"
