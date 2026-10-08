@@ -5,6 +5,10 @@ A community Home Assistant integration for the HEMS service at [PowerGravio](htt
 
 **0.1.0a7 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. This is not an official PowerGravio or Home Assistant integration.
 
+> **Upgrading active a4 control:** a7 no longer returns equipment to `Auto` on
+> stop, outage or a stale decision. Configure and test an explicit local
+> adapter/automation policy before upgrading with control enabled.
+
 HEMS Client contains no inverter driver, Modbus implementation or device-specific fallback policy. A Fronius, GEN24 or other-brand script is a separate local adapter example, not a capability supplied by this integration.
 
 [Svenska](docs/INSTALL_SV.md) · [Adapter contract](docs/ADAPTER.md) · [Fronius GEN24 reference](docs/FRONIUS_GEN24_REFERENCE.md) · [Lessons learned](docs/LESSONS_LEARNED.md) · [Protocol](docs/PROTOCOL.md) · [Roadmap](docs/ROADMAP.md)
