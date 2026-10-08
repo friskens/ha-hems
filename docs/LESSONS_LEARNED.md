@@ -32,6 +32,6 @@ Always verify grid/battery sign conventions in a known physical state. Inverter 
 
 Do not refresh the age of a cached sample when reusing it. Validate measurement freshness locally before sending data. Never send an old decision as though it were newly confirmed.
 
-Temporary communication failure should return to local autonomous operation and later recover automatically. A permanent tripped boolean defeated this goal. Keep desired operation separate from actual execution, verify Auto, and recover with fresh data. A manual stop must always win.
+Temporary communication failure must not make the generic client choose a hardware mode. Keep desired operation separate from actual execution, show adapter verification failures clearly, and let the local adapter decide whether its hardware needs retry or Auto. A manual stop must always win.
 
 Missing load decisions must not mean “turn everything off”. EV SOC can be useful telemetry before charger control exists. Do not copy site-specific load IDs or household entities into a generic integration.

@@ -10,7 +10,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "execution": runtime.status,
         "error": runtime.error,
         "requested": runtime.recovery.requested,
-        "restore_pending": runtime.recovery.restore_pending,
+        "failed_effective_command": runtime.recovery.failed,
         "invalid_fields": runtime.invalid,
         "decision_action": runtime.decision.action if runtime.decision else None,
         "last_success": runtime.last_success,

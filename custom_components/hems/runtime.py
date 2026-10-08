@@ -1,4 +1,4 @@
-"""Independent telemetry and serialized actuator tasks with automatic recovery."""
+"""Independent telemetry and serialized adapter calls without hardware policy."""
 
 import asyncio
 from datetime import timedelta
@@ -23,24 +23,19 @@ class Runtime:
         self.hass, self.entry = hass, entry
         self.options = entry.options
         self.client = Client(session, entry.data["endpoint"], entry.data["api_key"])
-        self.adapter = ScriptAdapter(
-            hass,
-            self.options.get("apply_script"),
-            self.options.get("auto_script"),
-            self.options.get("commands", []),
-        )
+        self.adapter = ScriptAdapter(hass, self.options.get("apply_script"), self.options.get("commands", []))
         self.store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
         self.recovery = Recovery()
         self.decision = None
         self.status, self.error = "starting", None
         self.measurements, self.invalid = {}, []
         self.previous = {}
-        self.last_attempt = self.last_success = self.last_restore = 0
+        self.last_attempt = self.last_success = 0
+        self.last_receipt = None
         self.interval = DEFAULT_INTERVAL
         self.listeners = set()
         self._tick_task = self._write_task = None
         self._cancel_timer = None
-        self._owned = False
         self._reauth_started = False
         self._closing = False
         self._exchange_failed = False
@@ -71,8 +66,6 @@ class Runtime:
         await self.store.async_save(
             {
                 "requested": self.recovery.requested,
-                "restore_pending": self.recovery.restore_pending,
-                "owned": self._owned,
             }
         )
 
@@ -80,9 +73,6 @@ class Runtime:
         stored = await self.store.async_load() or {}
         if stored.get("requested"):
             self.recovery.request(True, time.time())
-        elif stored.get("restore_pending") or stored.get("owned"):
-            self.recovery.restore_pending = True
-        self._owned = bool(stored.get("owned"))
         self._cancel_timer = async_track_time_interval(self.hass, self.schedule_tick, timedelta(seconds=5))
         self.schedule_tick(None)
 
@@ -93,15 +83,12 @@ class Runtime:
 
     async def request(self, enabled):
         if enabled and (
-            not self.adapter.apply_script or not self.adapter.auto_script or not self.adapter.commands
+            not self.adapter.apply_script or not self.adapter.commands
         ):
             raise HomeAssistantError(translation_domain=DOMAIN, translation_key="adapter_required")
         self.recovery.request(enabled, time.time())
-        # A fresh observer-only installation must never touch equipment.
-        if not enabled and not self._owned:
-            self.recovery.restore_pending = False
         await self.cancel_write()
-        self.status = "recovering" if enabled else "stopped"
+        self.status = "starting" if enabled else "stopped"
         await self.save()
         self.publish()
         self.schedule_tick(None)
@@ -113,21 +100,13 @@ class Runtime:
                 await self._write_task
             except asyncio.CancelledError:
                 pass
+            # A cancelled script may have changed hardware before it stopped.
+            # Its previous receipt can no longer verify the desired state.
+            self.recovery.verified = None
 
-    async def fail(self, reason, control=False):
+    async def fail(self, reason):
         self.error = reason
-        self.recovery.reset_good()
-        if self.recovery.requested or self._owned:
-            # Enter fallback once. Repeated stale samples must not cancel Auto
-            # while it is still restoring, or repeatedly rewrite verified Auto.
-            if not self.recovery.pending and not self.recovery.restore_pending:
-                self.recovery.fault(time.time(), control)
-                await self.cancel_write()
-                await self.save()
-            if not self.recovery.restore_pending:
-                self.status = "recovering"
-        else:
-            self.status = "observation_error"
+        self.status = "observation_error"
 
     async def tick(self):
         now = time.time()
@@ -151,7 +130,6 @@ class Runtime:
                     self.entry.async_start_reauth(self.hass)
             except (TransportError, ProtocolError) as err:
                 self._exchange_failed = True
-                self.recovery.reset_good()
                 self.error = str(err)
                 if isinstance(err, ProtocolError) or now - self.last_success >= 180:
                     await self.fail(str(err))
@@ -160,12 +138,17 @@ class Runtime:
                 self.decision = decision
                 self.last_success = decision.received_at
                 self.previous = dict(self.measurements)
-                self.error = None
-                self.recovery.good(decision.received_at)
-                if not self.recovery.requested and not self.recovery.restore_pending:
+                if self.status == "observation_error":
+                    self.error = None
+                if not self.recovery.requested:
                     self.status = "observing"
+                elif self.recovery.verified == decision.effective:
+                    self.status = "settings_verified"
+                elif self.recovery.failed == decision.effective:
+                    self.status = self.recovery.failed_status
+                    self.error = self.recovery.failed_error
         if self.recovery.requested and self.command_supported is False:
-            await self.fail("unsupported_adapter_command")
+            self.status, self.error = "adapter_failed", "unsupported_adapter_command"
         self.drive()
         self.publish()
 
@@ -173,16 +156,9 @@ class Runtime:
         if self._closing or (self._write_task and not self._write_task.done()):
             return
         now = time.time()
-        if self.recovery.restore_pending:
-            if now - self.last_restore >= 60:
-                self.last_restore = now
-                self._write_task = self.hass.async_create_task(self.restore())
-            return
         if self.command_supported is False:
             return
-        if self.recovery.can_resume(now, self.decision):
-            self.recovery.pending = False
-        if not self.recovery.requested or self.recovery.pending or not self.decision:
+        if not self.recovery.requested or not self.decision:
             return
         if not 0 <= now - self.decision.received_at < 90:
             return
@@ -192,41 +168,30 @@ class Runtime:
             self.recovery.verified = None
             return
         effective = self.decision.effective
-        if self.recovery.verified != effective:
+        if self.recovery.verified != effective and self.recovery.failed != effective:
             self._write_task = self.hass.async_create_task(self.apply(self.decision, effective))
-
-    async def restore(self):
-        self.status = "restoring_auto"
-        self.publish()
-        try:
-            await self.adapter.execute("auto", 0.0, str(uuid.uuid4()))
-        except VerificationError:
-            self.error, self.status = "auto_unconfirmed", "recovering"
-        else:
-            self.recovery.restore_pending = False
-            self._owned = False
-            self.status = "recovering" if self.recovery.requested else "stopped"
-            self.error = (
-                "unsupported_adapter_command"
-                if self.recovery.requested and self.command_supported is False
-                else None
-            )
-        await self.save()
-        self.publish()
 
     async def apply(self, decision, effective=None):
         effective = effective or decision.effective
-        self._owned = True  # Persist before any hardware write, including partial writes.
-        await self.save()
         self.status = "applying"
         self.publish()
         try:
-            await self.adapter.execute(*effective, str(uuid.uuid4()))
-        except VerificationError:
-            self.recovery.fault(time.time(), control=True)
-            self.status, self.error = "recovering", "write_unconfirmed"
+            receipt = await self.adapter.execute(*effective, str(uuid.uuid4()))
+        except VerificationError as err:
+            self.last_receipt = err.receipt
+            self.recovery.failed = effective
+            self.recovery.failed_status = self.status = (
+                "adapter_failed"
+                if str(err) in {"adapter_failed", "missing_adapter_script", "unsupported_adapter_command"}
+                else "verification_failed"
+            )
+            self.recovery.failed_error = self.error = str(err)
         else:
             self.recovery.verified = effective
+            self.recovery.failed = None
+            self.recovery.failed_status = None
+            self.recovery.failed_error = None
+            self.last_receipt = receipt
             self.status, self.error = "settings_verified", None
         await self.save()
         self.publish()
@@ -242,7 +207,3 @@ class Runtime:
             except asyncio.CancelledError:
                 pass
         await self.cancel_write()
-        if self._owned or self.recovery.restore_pending:
-            self.recovery.restore_pending = True
-            await self.save()
-            await self.restore()

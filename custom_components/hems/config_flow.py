@@ -34,7 +34,7 @@ def measurement_schema(defaults):
 
 def adapter_schema(defaults):
     schema = {}
-    for key in ("apply_script", "auto_script"):
+    for key in ("apply_script",):
         marker = vol.Optional(key, default=defaults[key]) if defaults.get(key) else vol.Optional(key)
         schema[marker] = selector.EntitySelector(selector.EntitySelectorConfig(domain="script"))
     schema[vol.Optional("commands", default=defaults.get("commands", []))] = selector.SelectSelector(
@@ -127,10 +127,9 @@ class HemsOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             selected = (
                 bool(user_input.get("apply_script"))
-                or bool(user_input.get("auto_script"))
                 or bool(user_input.get("commands"))
             )
-            complete = all(user_input.get(k) for k in ("apply_script", "auto_script", "commands"))
+            complete = all(user_input.get(k) for k in ("apply_script", "commands"))
             if selected and not complete:
                 errors["base"] = "incomplete_adapter"
             else:

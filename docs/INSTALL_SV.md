@@ -3,30 +3,41 @@
 Aktuell utvecklingsversion skickar giltiga mätvärden var 20:e sekund, oberoende
 av svarets `command_interval_seconds`. Den läser HA:s befintliga tillstånd och
 ökar inte avläsningen av växelriktarregister. Kommandon som adaptern inte stöder
-visas med `command_supported: false` och ger vid aktiv styrning lokal Auto med
-felet `unsupported_adapter_command`. Detta kvitteras ännu inte till molntjänsten.
+visas med `command_supported: false` och felet `unsupported_adapter_command`.
+Klienten skickar ingen lokal Auto-återställning. Detta kvitteras ännu inte till
+molntjänsten.
 
 Kontrollera solsensorerna nattetid: färska 0 W fungerar, men `unavailable` är
 inte samma sak som null. Saknade frivilliga värden stoppar inte urladdningen.
-Selfconsumption och `power_kw` skickas till Växelriktaren som kommando och maximalt
-urladdningstak, oberoende av ev laddning. Noll betyder noll tillåten
-urladdning; en saknad gräns avvisas. Val av växelriktarläge och lokala
-optimeringar hör hemma i Växelriktar styr skripten. Befintliga Växelriktaren måste stödja
-de kommandon som finns innan denna version aktiveras.
+`selfconsumption` och `power_kw` skickas till den lokala adaptern som kommando
+och maximalt urladdningstak, oberoende av EV-laddning. Noll betyder noll
+tillåten urladdning; en saknad gräns avvisas. Val av växelriktarläge och
+lokala optimeringar hör hemma i adapter-skripten. Den lokala adaptern måste
+stödja de angivna kommandona innan denna version aktiveras.
 
-HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a4 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md).
+HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a7 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md).
 
 1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs.
 2. Installera, starta om HA och lägg till **HEMS Client**.
 3. Ange leverantörens fullständiga HTTPS-adress och API-nyckel. Nyckeln skickas endast i `X-Api-Key`.
 4. Välj sensorer för batteriets SOC, nätets effekt, batteriets effekt och en eller flera solproduktionssensorer. Nätimport och batteriladdning ska vara positiva; tecknen kan vändas i inställningarna.
-5. Låt Växelriktar styr scripten vara av medan mätningar och beslut kontrolleras. Ange därefter skript för kommando och återgång till Auto samt vilka kommandon Växelriktaren faktiskt stödjer.
+5. Låt styrskriptet vara av medan mätningar och beslut kontrolleras. Ange därefter ett skript för kommando och verifiering samt vilka kommandon just din lokala adapter faktiskt stödjer. HEMS Client innehåller ingen Fronius-, Modbus- eller annan växelriktardrivrutin.
 
 Solproduktionen ska inkludera direkt laddning av batteriet. Dvs AC effekt på Växelriktaren är inte intressant utan t.ex PV Effekt eller MPPT effekt. Bilens SOC kan skickas även om laddaren inte styrs. För eventuella växelriktare med enbart PV och inget batteri kan såklart AC effekt användas.
 
 Integrationen ändrar aldrig SOC-gränser. Behåll batteritillverkarens och din installationens inställningar lokalt. Styrningen ändrar inte befintliga YAML-automationer det här måste du programmera själv i yaml. (Eller låta en AI skriva ihop några script åt dig)
 
-Kontroll sensorn visar önskad drift. Vid tillfälliga fel försöker klienten återgå till Auto och återupptar sedan driften efter verifierad återhämtning. Vår tanke är att den inte bli permanent avstängd av ett kommunikationsfel. Ett manuellt stopp gäller tills du själv slår på igen.
+Kontrollsensorn visar önskad drift. Vid tillfälliga fel visar klienten adapter- eller verifieringsfelet men ändrar inte hårdvarans läge. Lokal adapterpolicy äger eventuell retry eller återgång till Auto. Ett manuellt stopp gäller tills du själv slår på igen.
+
+När styrningen stoppas, kontakten med HEMS saknas eller ett beslut blir för
+gammalt ändrar HEMS Client inte utrustningen. Vill du att anläggningen ska
+återgå till ett särskilt läge, avbryta styrningen eller försöka igen, lägger du
+en uttrycklig regel för det i din lokala adapter eller automation.
+
+Vid uppgradering från en tidigare alfa ignoreras tidigare `auto_script`,
+`owned` och `restore_pending`. Uppgraderingen skriver inte till hårdvaran.
+Om anläggningen behöver bevakning, retry eller återgång till ett lokalt
+standardläge ska det vara en uttrycklig policy i den lokala adaptern.
 
 Installation via HACS och konfigurering av 0.1.0a3 har kontrollerats i HA 2026.9.3, med testposten lämnad inaktiverad. Se [riktiga konfigurationsbilder](SCREENSHOTS.md). Automatiska tester körs med simulerade HA-tjänster. Ursprungliga installationens erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
 
