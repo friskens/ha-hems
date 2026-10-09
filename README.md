@@ -3,7 +3,7 @@
 
 A community Home Assistant integration for the HEMS service at [PowerGravio](https://powergravio.se). It validates local energy measurements, exchanges them with HEMS and exposes the returned decision and execution status in Home Assistant.
 
-**0.1.0a7 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. This is not an official PowerGravio or Home Assistant integration.
+**0.1.0a8 is an experimental alpha.** It collects measurements, receives decisions and exposes their status. Battery control requires user-supplied HA scripts that implement and independently verify the device commands. This is not an official PowerGravio or Home Assistant integration.
 
 > **Upgrading active a4 control:** a7 no longer returns equipment to `Auto` on
 > stop, outage or a stale decision. Configure and test an explicit local
@@ -18,6 +18,7 @@ HEMS Client contains no inverter driver, Modbus implementation or device-specifi
 - Configures the provider HTTPS address, API key and measurement entities in the HA UI.
 - Accepts a provider base address and uses `/battery` automatically; a supplied endpoint path is preserved.
 - Sends validated battery, grid and PV observations to HEMS and displays its decision.
+- Exposes complete validated load decisions for local automations; it does not actuate chargers or other loads.
 - Calls an opt-in local adapter script for supported battery commands, with independent hardware readback.
 - Exposes control, decision, execution and connection entities for dashboards and local automations.
 

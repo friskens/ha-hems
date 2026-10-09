@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0a8
+
+- Expose the complete validated `loads[]` entries as the Decision sensor's
+  ordered `loads` attribute for local automations and adapters. This replaces
+  the previous `id`-to-`action` mapping; a8 still performs no EV or deferrable
+  load actuation.
+
 ## 0.1.0a7
 
 > **Breaking change for active a4 control:** automatic return to `Auto` has

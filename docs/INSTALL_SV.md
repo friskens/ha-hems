@@ -15,7 +15,12 @@ tillåten urladdning; en saknad gräns avvisas. Val av växelriktarläge och
 lokala optimeringar hör hemma i adapter-skripten. Den lokala adaptern måste
 stödja de angivna kommandona innan denna version aktiveras.
 
-HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a7 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md).
+HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a8 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md).
+
+I a8 visas ett beslut om laster i kontrollsensorns attribut `loads` som en
+ordnad lista med samma fältnamn som i HEMS-svaret. Det är ett underlag för
+lokala automationer; klienten aktiverar eller begränsar inte en billaddare
+eller annan last.
 
 ## Viktigt vid uppgradering från 0.1.0a4
 

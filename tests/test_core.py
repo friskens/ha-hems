@@ -48,6 +48,72 @@ def test_load_absence_is_not_off():
     assert parse_response({"action": "pause", "loads": []}, 100).loads == ()
 
 
+def test_loads_preserve_the_contract_fields_for_local_automations():
+    decision = parse_response(
+        {
+            "action": "pause",
+            "loads": [
+                {
+                    "id": "ev_1",
+                    "kind": "ev",
+                    "name": "Driveway charger",
+                    "action": "charge",
+                    "current_a": 16,
+                    "target_pct": 80,
+                    "uid": "charger-uid",
+                    "reason": "Surplus PV",
+                },
+                {
+                    "id": "a" * 32,
+                    "kind": "deferrable",
+                    "name": "Water heater",
+                    "action": "on",
+                    "power_kw": 2.5,
+                    "power_w": 2500,
+                    "reports_power": True,
+                    "reason": "Cheap hour",
+                },
+            ],
+        },
+        100,
+    )
+    assert decision.loads == (
+        {
+            "id": "ev_1",
+            "kind": "ev",
+            "name": "Driveway charger",
+            "action": "charge",
+            "current_a": 16.0,
+            "target_pct": 80.0,
+            "uid": "charger-uid",
+            "reason": "Surplus PV",
+        },
+        {
+            "id": "a" * 32,
+            "kind": "deferrable",
+            "name": "Water heater",
+            "action": "on",
+            "power_kw": 2.5,
+            "power_w": 2500.0,
+            "reports_power": True,
+            "reason": "Cheap hour",
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "load",
+    [
+        {"id": "ev_1", "action": "charge", "uid": 4},
+        {"id": "ev_1", "action": "charge", "reports_power": "true"},
+        {"id": "ev_1", "action": "charge", "power_w": True},
+    ],
+)
+def test_invalid_exposed_load_fields_are_rejected(load):
+    with pytest.raises(ProtocolError):
+        parse_response({"action": "pause", "loads": [load]}, 100)
+
+
 @pytest.mark.parametrize(
     "url",
     [

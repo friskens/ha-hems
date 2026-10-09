@@ -43,7 +43,14 @@ The Decision sensor exposes `command_supported` and `supported_commands`. During
 
 Each `loads[]` entry carries `id` (string, unique within the list), `kind` (`"ev"` or `"deferrable"`), `name` (string, for display), `action`, `power_kw`, `power_w` (the same value in W) and `reason` (free text for display and logs; never parse it). For `kind: "ev"` the action is `charge` or `stop`, with `current_a`, `target_pct` and the optional `uid` described below. For `kind: "deferrable"` the action is `on` or `off`; `power_kw`/`power_w` is the load's configured rated power, and `reports_power` (boolean) says whether the service uses a measured `load_power_w` value for this load. A deferrable load has no `uid`; its `id` is a 32-character hexadecimal string assigned when the load was created and is the key to use in `load_power_w`. Additional informational fields may appear in an entry and must be ignored.
 
-Loads are validated and shown as ID/action pairs only in this alpha. Missing/null loads mean no list was supplied; an empty list is not interpreted as an instruction to switch everything off. No load output is actuated and `load_power_w` is not sent.
+The Decision sensor exposes `loads` as an ordered list of validated entries in
+the same shape and field names as `loads[]` above. A field that the service
+omits is omitted from the corresponding sensor entry; unknown response fields
+are ignored. This replaces the earlier ID/action mapping, so local automations
+must iterate the list and select the entry they need by `id` or `uid`.
+Missing/null loads mean no list was supplied; an empty list is not interpreted
+as an instruction to switch everything off. No load output is actuated and
+`load_power_w` is not sent.
 
 Charger loads may carry an optional `uid`: a string that identifies the charger. It is assigned by the service, stays the same for as long as the charger exists and is never reused for another charger. `id` (for example `ev_1`) is still present and remains the charger's position. The response may also contain an optional `ev_chargers` list with one object per charger: `id`, `uid`, `name` and `phases`. Both are informational for this client: unknown response fields and unknown fields in a load are ignored.
 
