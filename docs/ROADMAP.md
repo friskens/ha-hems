@@ -2,9 +2,9 @@
 
 ## Current alpha scope
 
-0.1.0a7 configures measurement sources and the provider endpoint, sends validated
+0.1.0a8 configures measurement sources and the provider endpoint, sends validated
 telemetry, receives battery decisions and exposes decision, execution and
-connection state. Battery control is opt-in through a local script adapter with
+connection state plus complete load decisions for local automations. Battery control is opt-in through a local script adapter with
 independent hardware readback. The client has no bundled inverter driver,
 generic fallback or generic retry policy. EV and load data are informational;
 this alpha does not actuate EV chargers or deferrable loads.

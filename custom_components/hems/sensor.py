@@ -26,6 +26,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class HemsSensor(HemsEntity, SensorEntity):
+    _unrecorded_attributes = frozenset({"loads"})
+
     def __init__(self, runtime, key):
         super().__init__(runtime, key)
         self.key = key
@@ -60,7 +62,7 @@ class HemsSensor(HemsEntity, SensorEntity):
                 "power_kw": r.decision.power_kw,
                 "received_at": r.decision.received_at,
                 "fresh": 0 <= time.time() - r.decision.received_at < 90,
-                "loads": dict(r.decision.loads) if r.decision.loads is not None else None,
+                "loads": [dict(load) for load in r.decision.loads] if r.decision.loads is not None else None,
                 "command_supported": r.command_supported,
                 "supported_commands": sorted(r.adapter.commands),
                 "command_interval_seconds": r.decision.interval,

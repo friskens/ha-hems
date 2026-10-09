@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.0a8
+
+> **Breaking change for local load automations:** `loads` changes from an
+> `{id: action}` mapping to an ordered list of load entries. Replace, for
+> example, `state_attr('sensor.hems_decision', 'loads')['ev_1']` with
+> `((state_attr('sensor.hems_decision', 'loads') or []) | selectattr('id',
+> 'eq', 'ev_1') | map(attribute='action') | first | default('none'))`.
+
+- Expose the complete validated `loads[]` entries as the Decision sensor's
+  ordered `loads` attribute for local automations and adapters. This replaces
+  the previous `id`-to-`action` mapping; a8 still performs no EV or deferrable
+  load actuation. Informational fields with an invalid type are omitted without
+  discarding the battery decision; `loads` is not stored in Recorder history.
+
 ## 0.1.0a7
 
 > **Breaking change for active a4 control:** automatic return to `Auto` has

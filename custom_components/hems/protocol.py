@@ -53,8 +53,8 @@ class Decision:
     power_kw: float
     received_at: float
     interval: int = DEFAULT_INTERVAL
-    # Tuple of (load ID, action). None means missing/null, not "turn off".
-    loads: tuple | None = None
+    # Normalized response entries; None means missing/null, not "turn off".
+    loads: tuple[dict, ...] | None = None
 
     @property
     def effective(self):
@@ -107,10 +107,24 @@ def parse_response(data, received_at):
             ):
                 raise ProtocolError("invalid_load")
             seen.add(load_id)
+            entry = {"id": load_id, "action": load_action}
+            for field in ("kind", "name", "reason", "uid"):
+                if isinstance(load.get(field), str):
+                    entry[field] = load[field]
             for field, maximum in (("current_a", None), ("target_pct", 100), ("power_kw", None)):
                 if field in load:
                     number(load[field], field, 0, maximum)
-            parsed.append((load_id, load_action))
+                    entry[field] = load[field]
+            if "power_w" in load:
+                try:
+                    number(load["power_w"], "power_w", 0)
+                except ProtocolError:
+                    pass
+                else:
+                    entry["power_w"] = load["power_w"]
+            if type(load.get("reports_power")) is bool:
+                entry["reports_power"] = load["reports_power"]
+            parsed.append(entry)
         parsed = tuple(parsed)
     return Decision(action, power, received_at, interval, parsed)
 
