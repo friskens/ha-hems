@@ -22,6 +22,12 @@ ordnad lista med samma fältnamn som i HEMS-svaret. Det är ett underlag för
 lokala automationer; klienten aktiverar eller begränsar inte en billaddare
 eller annan last.
 
+> **Brytande ändring för lokala lastautomationer:** `loads` ändras från en
+> `{id: action}`-mappning till en lista. Ersätt exempelvis
+> `state_attr('sensor.hems_decision', 'loads')['ev_1']` med
+> `((state_attr('sensor.hems_decision', 'loads') or []) | selectattr('id',
+> 'eq', 'ev_1') | map(attribute='action') | first | default('none'))`.
+
 ## Viktigt vid uppgradering från 0.1.0a4
 
 - Den automatiska återgången till `Auto` är borttagen. Vid manuellt stopp,

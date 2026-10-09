@@ -26,6 +26,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class HemsSensor(HemsEntity, SensorEntity):
+    _unrecorded_attributes = frozenset({"loads"})
+
     def __init__(self, runtime, key):
         super().__init__(runtime, key)
         self.key = key

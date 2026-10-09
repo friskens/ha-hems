@@ -1,3 +1,7 @@
+import importlib
+import sys
+import types
+
 import pytest
 
 from custom_components.hems.adapter import VerificationError, validate_receipt
@@ -83,8 +87,8 @@ def test_loads_preserve_the_contract_fields_for_local_automations():
             "kind": "ev",
             "name": "Driveway charger",
             "action": "charge",
-            "current_a": 16.0,
-            "target_pct": 80.0,
+            "current_a": 16,
+            "target_pct": 80,
             "uid": "charger-uid",
             "reason": "Surplus PV",
         },
@@ -94,24 +98,61 @@ def test_loads_preserve_the_contract_fields_for_local_automations():
             "name": "Water heater",
             "action": "on",
             "power_kw": 2.5,
-            "power_w": 2500.0,
+            "power_w": 2500,
             "reports_power": True,
             "reason": "Cheap hour",
         },
     )
 
 
-@pytest.mark.parametrize(
-    "load",
-    [
-        {"id": "ev_1", "action": "charge", "uid": 4},
-        {"id": "ev_1", "action": "charge", "reports_power": "true"},
-        {"id": "ev_1", "action": "charge", "power_w": True},
-    ],
-)
-def test_invalid_exposed_load_fields_are_rejected(load):
-    with pytest.raises(ProtocolError):
-        parse_response({"action": "pause", "loads": [load]}, 100)
+def test_bad_informational_load_fields_do_not_discard_battery_decision():
+    decision = parse_response(
+        {
+            "action": "pause",
+            "loads": [
+                {
+                    "id": "ev_1",
+                    "action": "charge",
+                    "uid": 4,
+                    "power_w": True,
+                    "reports_power": "true",
+                }
+            ],
+        },
+        100,
+    )
+    assert decision.action == "pause"
+    assert decision.loads == ({"id": "ev_1", "action": "charge"},)
+
+
+def test_decision_sensor_exposes_list_or_none_for_loads(monkeypatch):
+    for name in (
+        "homeassistant",
+        "homeassistant.components",
+        "homeassistant.components.sensor",
+        "homeassistant.helpers",
+        "homeassistant.helpers.entity",
+    ):
+        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+    sensor_module = sys.modules["homeassistant.components.sensor"]
+    sensor_module.SensorDeviceClass = types.SimpleNamespace(BATTERY="battery", ENUM="enum")
+    sensor_module.SensorEntity = type("SensorEntity", (), {})
+    entity_module = sys.modules["homeassistant.helpers.entity"]
+    entity_module.DeviceInfo = lambda **kwargs: kwargs
+    entity_module.Entity = type("Entity", (), {})
+    sys.modules.pop("custom_components.hems.entity", None)
+    sys.modules.pop("custom_components.hems.sensor", None)
+    HemsSensor = importlib.import_module("custom_components.hems.sensor").HemsSensor
+    runtime = types.SimpleNamespace(
+        entry=types.SimpleNamespace(entry_id="test", title="Test"),
+        decision=parse_response({"action": "pause", "loads": [{"id": "ev_1", "action": "charge"}]}, 100),
+        command_supported=True,
+        adapter=types.SimpleNamespace(commands=set()),
+    )
+    sensor = HemsSensor(runtime, "decision")
+    assert sensor.extra_state_attributes["loads"] == [{"id": "ev_1", "action": "charge"}]
+    runtime.decision = parse_response({"action": "pause"}, 100)
+    assert sensor.extra_state_attributes["loads"] is None
 
 
 @pytest.mark.parametrize(

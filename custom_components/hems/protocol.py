@@ -109,18 +109,20 @@ def parse_response(data, received_at):
             seen.add(load_id)
             entry = {"id": load_id, "action": load_action}
             for field in ("kind", "name", "reason", "uid"):
-                if field in load:
-                    if not isinstance(load[field], str):
-                        raise ProtocolError(f"invalid_{field}")
+                if isinstance(load.get(field), str):
                     entry[field] = load[field]
             for field, maximum in (("current_a", None), ("target_pct", 100), ("power_kw", None)):
                 if field in load:
-                    entry[field] = number(load[field], field, 0, maximum)
+                    number(load[field], field, 0, maximum)
+                    entry[field] = load[field]
             if "power_w" in load:
-                entry["power_w"] = number(load["power_w"], "power_w", 0)
-            if "reports_power" in load:
-                if type(load["reports_power"]) is not bool:
-                    raise ProtocolError("invalid_reports_power")
+                try:
+                    number(load["power_w"], "power_w", 0)
+                except ProtocolError:
+                    pass
+                else:
+                    entry["power_w"] = load["power_w"]
+            if type(load.get("reports_power")) is bool:
                 entry["reports_power"] = load["reports_power"]
             parsed.append(entry)
         parsed = tuple(parsed)
