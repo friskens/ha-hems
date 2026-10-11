@@ -16,9 +16,11 @@ HEMS Client contains no inverter driver, Modbus implementation or device-specifi
 ## What it does
 
 - Configures the provider HTTPS address, API key and measurement entities in the HA UI.
-- Accepts a provider base address i.e powergravio.se
+- Accepts a provider base address, e.g. `https://powergravio.se`, and uses
+  `/battery` automatically; a supplied endpoint path is preserved.
 - Sends validated battery, grid and PV observations to HEMS and displays its decision.
-- Exposes complete validated load decisions for local automations.
+- Exposes complete validated load decisions for local automations; it does not
+  actuate chargers or other loads.
 - Calls an opt-in local adapter script for supported battery commands, with independent hardware readback.
 - Exposes control, decision, execution and connection entities for dashboards and local automations.
 
