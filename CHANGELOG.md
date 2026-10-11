@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0a9
+
+- Document the optional `phase_current_a` request field (current per phase at the main fuse, L1–L3 in A); add proposal 6 on reporting per-phase current. No client change; this alpha does not send it.
+
 ## 0.1.0a8
 
 > **Breaking change for local load automations:** `loads` changes from an

@@ -99,6 +99,35 @@ customer's HEMS page within one exchange; a value far above the rated power is t
 misconnected sensor and discarded. The response carries no acknowledgement of the value; status 200
 means the whole request was accepted.
 
+## 6. Per-phase current at the main fuse
+
+The service accepts the current on each phase at the main fuse as the optional request field
+`phase_current_a` (see PROTOCOL.md). With per-phase values the service can keep each phase within
+the main fuse rating, not only the total: an unbalanced load, for example a single-phase car
+charger, can overload one phase while the total import stays below the limit. Without them, only
+the total is known.
+
+Proposal for the client:
+
+1. **Options.** Three optional current sensors, L1, L2 and L3, in the measurement options. Map all
+   three or none; a partial mapping is a configuration error. Missing phase sensors must not stop
+   the required telemetry.
+2. **Unit and sign.** Accept `A` (convert `mA` if the source uses it). Send the absolute value: some
+   meters report a negative current while exporting. A negative value or a value above 250 A makes
+   the service ignore the field.
+3. **Freshness.** Apply the same checks as for the required measurements: `last_reported` age below
+   120 seconds, no `unknown`/`unavailable`, finite numbers. If any phase fails, omit
+   `phase_current_a` for that exchange. Never send `0` for a phase that is not measured, and never
+   send fewer than three values.
+4. **Every exchange.** Send the field with every exchange while the sensors are valid; an omitted
+   field is read as unknown for that exchange.
+5. **Source.** Use the per-phase current of the grid meter at the connection point, not the
+   inverter's output current per phase, which does not include the house load.
+6. **Request allowlist.** Add `phase_current_a` to the fixed list of request fields in the
+   transport.
+
+The response is unchanged. There is no acknowledgement of the values beyond status 200.
+
 ---
 
 When a change on the service side affects the client, a pull request against `docs/PROTOCOL.md`
