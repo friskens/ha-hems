@@ -16,9 +16,11 @@ HEMS Client contains no inverter driver, Modbus implementation or device-specifi
 ## What it does
 
 - Configures the provider HTTPS address, API key and measurement entities in the HA UI.
-- Accepts a provider base address and uses `/battery` automatically; a supplied endpoint path is preserved.
+- Accepts a provider base address, e.g. `https://powergravio.se`, and uses
+  `/battery` automatically; a supplied endpoint path is preserved.
 - Sends validated battery, grid and PV observations to HEMS and displays its decision.
-- Exposes complete validated load decisions for local automations; it does not actuate chargers or other loads.
+- Exposes complete validated load decisions for local automations; it does not
+  actuate chargers or other loads.
 - Calls an opt-in local adapter script for supported battery commands, with independent hardware readback.
 - Exposes control, decision, execution and connection entities for dashboards and local automations.
 
@@ -58,16 +60,6 @@ The control switch is **off by default**. With no adapter configured, the integr
 Invalid measurements, responses or communication are shown as observation errors. A failed adapter write/readback is shown as an adapter or verification failure together with receipt metadata. The client keeps the HEMS decision visible as the desired state and does **not** issue a generic hardware fallback or retry command. Turning the switch off stops further client commands; local device policy, including any Auto fallback, belongs to the adapter.
 
 All hardware control depends on the configured scripts and their independent readback. `settings_verified` means settings were acknowledged through that contract, **not** that physical power exactly equals a target. Hardware limits remain the inverter/BMS's responsibility. Do not run two independent battery controllers at once.
-
-## Development
-
-```sh
-python -m pip install -r requirements-dev.txt
-python -m pytest -q
-python -m ruff check custom_components tests
-```
-
-Tests cover protocol validation, authentication placement, measurement age/sign/unit conversion, command deduplication, restart intent and fault recovery. They do not replace testing of HA setup/config flows or live inverter behavior. Contributions should include a regression for the failure being fixed. See [CONTRIBUTING](CONTRIBUTING.md).
 
 MIT licensed. Existing production YAML/scripts are not modified by installing this package.
 
