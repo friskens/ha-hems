@@ -132,10 +132,13 @@ def parse_response(data, received_at):
 def changed(current, previous):
     if current.keys() != previous.keys():
         return True
-    return any(
-        abs(value - previous[key]) >= (1 if key in {"soc", "ev_soc_pct"} else 200)
-        for key, value in current.items()
-    )
+    for key, value in current.items():
+        if key == "phase_current_a":
+            if value != previous[key]:
+                return True
+        elif abs(value - previous[key]) >= (1 if key in {"soc", "ev_soc_pct"} else 200):
+            return True
+    return False
 
 
 def due(now, last_attempt, last_success, interval, sample, previous):

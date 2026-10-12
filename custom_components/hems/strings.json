@@ -21,6 +21,9 @@
           "solar_entities": "PV production sources",
           "ev_power_entity": "EV charging power (optional)",
           "ev_soc_entity": "EV SOC (optional)",
+          "phase_l1_current_entity": "Phase L1 current (optional)",
+          "phase_l2_current_entity": "Phase L2 current (optional)",
+          "phase_l3_current_entity": "Phase L3 current (optional)",
           "invert_grid_power": "Invert grid power sign",
           "invert_battery_power": "Invert battery power sign"
         }
@@ -35,7 +38,8 @@
     "error": {
       "invalid_endpoint": "Use an HTTPS base address or endpoint without credentials, query parameters or fragment.",
       "invalid_key": "Enter an API key.",
-      "missing_solar": "Select at least one PV production source."
+      "missing_solar": "Select at least one PV production source.",
+      "incomplete_phase_current": "Select all three phase-current sensors, or leave all of them empty."
     },
     "abort": {
       "already_configured": "This endpoint is already configured.",
@@ -54,6 +58,9 @@
           "solar_entities": "PV production sources",
           "ev_power_entity": "EV charging power (optional)",
           "ev_soc_entity": "EV SOC (optional)",
+          "phase_l1_current_entity": "Phase L1 current (optional)",
+          "phase_l2_current_entity": "Phase L2 current (optional)",
+          "phase_l3_current_entity": "Phase L3 current (optional)",
           "invert_grid_power": "Invert grid power sign",
           "invert_battery_power": "Invert battery power sign"
         }
@@ -69,7 +76,8 @@
     },
     "error": {
       "missing_solar": "Select at least one PV production source.",
-      "incomplete_adapter": "Select an apply script and at least one supported command, or clear all adapter fields."
+      "incomplete_adapter": "Select an apply script and at least one supported command, or clear all adapter fields.",
+      "incomplete_phase_current": "Select all three phase-current sensors, or leave all of them empty."
     }
   },
   "entity": {

@@ -223,6 +223,53 @@ def test_collect_never_substitutes_zero_and_sums_solar():
     assert "solar_power" not in collect(options, states.get, 130)[0]
 
 
+def test_phase_current_requires_three_fresh_sensors_and_uses_magnitudes():
+    states = {
+        "l1": Observation(-12, "A", 100),
+        "l2": Observation(1500, "mA", 100),
+        "l3": Observation(0, "A", 100),
+    }
+    options = {
+        "phase_l1_current_entity": "l1",
+        "phase_l2_current_entity": "l2",
+        "phase_l3_current_entity": "l3",
+    }
+    sample, invalid = collect(options, states.get, 110)
+    assert sample["phase_current_a"] == [12, 1.5, 0]
+    assert "phase_current_a" not in invalid
+    states["l3"] = Observation(1, "A", 0)
+    sample, invalid = collect(options, states.get, 130)
+    assert "phase_current_a" not in sample
+    assert "phase_current_a" in invalid
+
+
+def test_phase_current_partial_mapping_or_out_of_range_is_omitted():
+    sample, invalid = collect(
+        {"phase_l1_current_entity": "l1"},
+        lambda _: Observation(12, "A", 100),
+        110,
+    )
+    assert "phase_current_a" not in sample
+    assert "phase_current_a" in invalid
+    sample, invalid = collect(
+        {
+            "phase_l1_current_entity": "l1",
+            "phase_l2_current_entity": "l2",
+            "phase_l3_current_entity": "l3",
+        },
+        lambda entity: Observation(251 if entity == "l2" else 12, "A", 100),
+        110,
+    )
+    assert "phase_current_a" not in sample
+    assert "phase_current_a" in invalid
+
+
+def test_phase_current_does_not_break_measurement_change_detection():
+    previous = {"phase_current_a": [10, 10, 10]}
+    assert not due(1010, 1000, 1000, 110, previous, previous)
+    assert due(1020, 1000, 1000, 110, {"phase_current_a": [11, 10, 10]}, previous)
+
+
 def test_recovery_tracks_requested_and_failed_effective_command():
     recovery = Recovery()
     recovery.request(True, 100)

@@ -25,7 +25,10 @@ class Client:
 
     async def exchange(self, measurements, now):
         # Fixed allowlist prevents callers from reintroducing credentials in body.
-        allowed = {"soc", "grid_power", "solar_power", "battery_power", "ev_power_w", "ev_soc_pct"}
+        allowed = {
+            "soc", "grid_power", "solar_power", "battery_power", "ev_power_w", "ev_soc_pct",
+            "phase_current_a",
+        }
         payload = {k: v for k, v in measurements.items() if k in allowed}
         payload.update(heartbeat=False, app_version=f"ha-hems/{VERSION}")
         try:
