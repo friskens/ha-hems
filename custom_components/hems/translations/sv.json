@@ -21,6 +21,9 @@
           "solar_entities": "Sensorer för solproduktion",
           "ev_power_entity": "Bilens laddeffekt (valfritt)",
           "ev_soc_entity": "Bilens laddnivå (valfritt)",
+          "phase_l1_current_entity": "Nätmätarens fasström L1 (valfritt)",
+          "phase_l2_current_entity": "Nätmätarens fasström L2 (valfritt)",
+          "phase_l3_current_entity": "Nätmätarens fasström L3 (valfritt)",
           "invert_grid_power": "Vänd tecknet för näteffekt",
           "invert_battery_power": "Vänd tecknet för batterieffekt"
         }
@@ -35,7 +38,8 @@
     "error": {
       "invalid_endpoint": "Ange en HTTPS-basadress eller endpoint utan inloggningsuppgifter, frågeparametrar eller fragment.",
       "invalid_key": "Ange en API-nyckel.",
-      "missing_solar": "Välj minst en sensor för solproduktion."
+      "missing_solar": "Välj minst en sensor för solproduktion.",
+      "incomplete_phase_current": "Välj alla tre fasströmssensorer, eller lämna alla tomma."
     },
     "abort": {
       "already_configured": "Den här adressen är redan konfigurerad.",
@@ -54,6 +58,9 @@
           "solar_entities": "Sensorer för solproduktion",
           "ev_power_entity": "Bilens laddeffekt (valfritt)",
           "ev_soc_entity": "Bilens laddnivå (valfritt)",
+          "phase_l1_current_entity": "Nätmätarens fasström L1 (valfritt)",
+          "phase_l2_current_entity": "Nätmätarens fasström L2 (valfritt)",
+          "phase_l3_current_entity": "Nätmätarens fasström L3 (valfritt)",
           "invert_grid_power": "Vänd tecknet för näteffekt",
           "invert_battery_power": "Vänd tecknet för batterieffekt"
         }
@@ -69,7 +76,8 @@
     },
     "error": {
       "missing_solar": "Välj minst en sensor för solproduktion.",
-      "incomplete_adapter": "Välj ett skript för verkställande och minst ett kommando, eller töm alla adapterfält."
+      "incomplete_adapter": "Välj ett skript för verkställande och minst ett kommando, eller töm alla adapterfält.",
+      "incomplete_phase_current": "Välj alla tre fasströmssensorer, eller lämna alla tomma."
     }
   },
   "entity": {

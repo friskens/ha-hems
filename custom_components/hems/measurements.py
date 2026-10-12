@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 import math
 
+from .const import PHASE_CURRENT_ENTITY_KEYS
+
 
 @dataclass(frozen=True)
 class Observation:
@@ -22,6 +24,12 @@ def normalize(observation, now, kind, max_age=120, invert=False):
         return None
     if kind == "soc":
         return value if observation.unit == "%" and 0 <= value <= 100 else None
+    if kind == "current":
+        if observation.unit == "mA":
+            value /= 1000
+        elif observation.unit != "A":
+            return None
+        return value if abs(value) <= 250 else None
     if observation.unit not in ("W", "kW"):
         return None
     value *= 1000 if observation.unit == "kW" else 1
@@ -64,4 +72,14 @@ def collect(options, observe, now):
         invalid.append("solar_power")
     else:
         sample["solar_power"] = sum(solar)
+    phase_entities = [options.get(key) for key in PHASE_CURRENT_ENTITY_KEYS]
+    if any(phase_entities):
+        if not all(phase_entities):
+            invalid.append("phase_current_a")
+        else:
+            phase_currents = [normalize(observe(entity), now, "current") for entity in phase_entities]
+            if any(value is None for value in phase_currents):
+                invalid.append("phase_current_a")
+            else:
+                sample["phase_current_a"] = [abs(value) for value in phase_currents]
     return sample, invalid

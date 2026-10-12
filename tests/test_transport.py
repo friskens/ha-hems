@@ -34,7 +34,7 @@ class Session:
 async def test_header_only_no_redirect_or_heartbeat():
     session = Session()
     decision = await Client(session, "https://example.com/battery", "test-secret").exchange(
-        {"soc": 50, "api_key": "must-not-send", "ev_soc_pct": 80}, lambda: 100
+        {"soc": 50, "api_key": "must-not-send", "ev_soc_pct": 80, "phase_current_a": [1, 2, 3]}, lambda: 100
     )
     assert decision.action == "pause"
     assert session.kwargs["headers"] == {"X-Api-Key": "test-secret"}
@@ -42,6 +42,7 @@ async def test_header_only_no_redirect_or_heartbeat():
     assert "api_key" not in session.kwargs["json"]
     assert session.kwargs["json"]["heartbeat"] is False
     assert session.kwargs["json"]["ev_soc_pct"] == 80
+    assert session.kwargs["json"]["phase_current_a"] == [1, 2, 3]
 
 
 @pytest.mark.parametrize(

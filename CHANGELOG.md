@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0a9
+
+- Send optional `phase_current_a` telemetry when all three configured main-fuse
+  phase-current sensors are fresh and valid. Values use `A` or `mA`, are sent
+  as L1–L3 magnitudes, and the whole field is omitted if any phase is missing,
+  stale or invalid.
+
 ## 0.1.0a8
 
 > **Breaking change for local load automations:** `loads` changes from an

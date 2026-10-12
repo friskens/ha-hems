@@ -7,7 +7,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import COMMANDS, DOMAIN
+from .const import COMMANDS, DOMAIN, PHASE_CURRENT_ENTITY_KEYS
 from .protocol import ProtocolError, endpoint
 
 
@@ -19,6 +19,7 @@ def measurement_schema(defaults):
         "battery_entity",
         "ev_power_entity",
         "ev_soc_entity",
+        *PHASE_CURRENT_ENTITY_KEYS,
     ):
         required = key in ("soc_entity", "grid_entity", "battery_entity")
         marker = vol.Required if required else vol.Optional
@@ -30,6 +31,12 @@ def measurement_schema(defaults):
     for key in ("invert_grid_power", "invert_battery_power"):
         schema[vol.Optional(key, default=defaults.get(key, False))] = bool
     return vol.Schema(schema)
+
+
+def phase_current_configuration_complete(data):
+    """Require all three optional phase sensors when any is selected."""
+    configured = [bool(data.get(key)) for key in PHASE_CURRENT_ENTITY_KEYS]
+    return not any(configured) or all(configured)
 
 
 def adapter_schema(defaults):
@@ -78,14 +85,18 @@ class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_measurements(self, user_input=None):
-        if user_input is not None and user_input.get("solar_entities"):
+        if user_input is not None and user_input.get("solar_entities") and phase_current_configuration_complete(user_input):
             return self.async_create_entry(
                 title=self.connection["name"], data=self.connection, options=user_input
             )
         return self.async_show_form(
             step_id="measurements",
             data_schema=measurement_schema({}),
-            errors={"base": "missing_solar"} if user_input is not None else {},
+            errors={
+                "base": "missing_solar" if not user_input.get("solar_entities") else "incomplete_phase_current"
+            }
+            if user_input is not None
+            else {},
         )
 
     async def async_step_reauth(self, entry_data):
@@ -113,13 +124,17 @@ class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class HemsOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
-        if user_input is not None and user_input.get("solar_entities"):
+        if user_input is not None and user_input.get("solar_entities") and phase_current_configuration_complete(user_input):
             self.pending = user_input
             return await self.async_step_adapter()
         return self.async_show_form(
             step_id="init",
             data_schema=measurement_schema(self.config_entry.options),
-            errors={"base": "missing_solar"} if user_input is not None else {},
+            errors={
+                "base": "missing_solar" if not user_input.get("solar_entities") else "incomplete_phase_current"
+            }
+            if user_input is not None
+            else {},
         )
 
     async def async_step_adapter(self, user_input=None):
