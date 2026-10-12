@@ -25,7 +25,8 @@ HEMS Client contains no inverter driver, Modbus implementation or device-specifi
 - Sends validated battery, grid and PV observations to HEMS and displays its decision.
 - Optionally reports fresh L1, L2 and L3 current magnitudes from the grid meter;
   all three phase sensors must be configured before this telemetry is sent.
-- Exposes complete validated load decisions for local automations; it does not actuate chargers or other loads.
+- Exposes complete validated load decisions for local automations; it does not
+  actuate chargers or other loads.
 - Calls an opt-in local adapter script for supported battery commands, with independent hardware readback.
 - Exposes control, decision, execution and connection entities for dashboards and local automations.
 
