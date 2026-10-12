@@ -107,7 +107,7 @@ the main fuse rating, not only the total: an unbalanced load, for example a sing
 charger, can overload one phase while the total import stays below the limit. Without them, only
 the total is known.
 
-Proposal for the client:
+Implemented in a9:
 
 1. **Options.** Three optional current sensors, L1, L2 and L3, in the measurement options. Map all
    three or none; a partial mapping is a configuration error. Missing phase sensors must not stop

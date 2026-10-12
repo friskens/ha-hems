@@ -2,7 +2,10 @@
 
 ## 0.1.0a9
 
-- Document the optional `phase_current_a` request field (current per phase at the main fuse, L1–L3 in A); add proposal 6 on reporting per-phase current. No client change; this alpha does not send it.
+- Send optional `phase_current_a` telemetry when all three configured main-fuse
+  phase-current sensors are fresh and valid. Values use `A` or `mA`, are sent
+  as L1–L3 magnitudes, and the whole field is omitted if any phase is missing,
+  stale or invalid.
 
 ## 0.1.0a8
 

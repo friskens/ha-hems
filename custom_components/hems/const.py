@@ -15,6 +15,11 @@ COMMANDS = (
     "observe",
 )
 REQUIRED_FIELDS = ("soc", "grid_power", "solar_power", "battery_power")
+PHASE_CURRENT_ENTITY_KEYS = (
+    "phase_l1_current_entity",
+    "phase_l2_current_entity",
+    "phase_l3_current_entity",
+)
 MAX_AGE = 120
 DECISION_MAX_AGE = 90
 COMMUNICATION_TIMEOUT = 180
