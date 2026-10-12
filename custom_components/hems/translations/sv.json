@@ -21,9 +21,9 @@
           "solar_entities": "Sensorer för solproduktion",
           "ev_power_entity": "Bilens laddeffekt (valfritt)",
           "ev_soc_entity": "Bilens laddnivå (valfritt)",
-          "phase_l1_current_entity": "Fasström L1 (valfritt)",
-          "phase_l2_current_entity": "Fasström L2 (valfritt)",
-          "phase_l3_current_entity": "Fasström L3 (valfritt)",
+          "phase_l1_current_entity": "Nätmätarens fasström L1 (valfritt)",
+          "phase_l2_current_entity": "Nätmätarens fasström L2 (valfritt)",
+          "phase_l3_current_entity": "Nätmätarens fasström L3 (valfritt)",
           "invert_grid_power": "Vänd tecknet för näteffekt",
           "invert_battery_power": "Vänd tecknet för batterieffekt"
         }
@@ -58,9 +58,9 @@
           "solar_entities": "Sensorer för solproduktion",
           "ev_power_entity": "Bilens laddeffekt (valfritt)",
           "ev_soc_entity": "Bilens laddnivå (valfritt)",
-          "phase_l1_current_entity": "Fasström L1 (valfritt)",
-          "phase_l2_current_entity": "Fasström L2 (valfritt)",
-          "phase_l3_current_entity": "Fasström L3 (valfritt)",
+          "phase_l1_current_entity": "Nätmätarens fasström L1 (valfritt)",
+          "phase_l2_current_entity": "Nätmätarens fasström L2 (valfritt)",
+          "phase_l3_current_entity": "Nätmätarens fasström L3 (valfritt)",
           "invert_grid_power": "Vänd tecknet för näteffekt",
           "invert_battery_power": "Vänd tecknet för batterieffekt"
         }

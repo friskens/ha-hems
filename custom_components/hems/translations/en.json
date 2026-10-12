@@ -21,9 +21,9 @@
           "solar_entities": "PV production sources",
           "ev_power_entity": "EV charging power (optional)",
           "ev_soc_entity": "EV SOC (optional)",
-          "phase_l1_current_entity": "Phase L1 current (optional)",
-          "phase_l2_current_entity": "Phase L2 current (optional)",
-          "phase_l3_current_entity": "Phase L3 current (optional)",
+          "phase_l1_current_entity": "Grid meter current L1 (optional)",
+          "phase_l2_current_entity": "Grid meter current L2 (optional)",
+          "phase_l3_current_entity": "Grid meter current L3 (optional)",
           "invert_grid_power": "Invert grid power sign",
           "invert_battery_power": "Invert battery power sign"
         }
@@ -58,9 +58,9 @@
           "solar_entities": "PV production sources",
           "ev_power_entity": "EV charging power (optional)",
           "ev_soc_entity": "EV SOC (optional)",
-          "phase_l1_current_entity": "Phase L1 current (optional)",
-          "phase_l2_current_entity": "Phase L2 current (optional)",
-          "phase_l3_current_entity": "Phase L3 current (optional)",
+          "phase_l1_current_entity": "Grid meter current L1 (optional)",
+          "phase_l2_current_entity": "Grid meter current L2 (optional)",
+          "phase_l3_current_entity": "Grid meter current L3 (optional)",
           "invert_grid_power": "Invert grid power sign",
           "invert_battery_power": "Invert battery power sign"
         }

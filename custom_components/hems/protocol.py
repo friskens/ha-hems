@@ -134,7 +134,7 @@ def changed(current, previous):
         return True
     for key, value in current.items():
         if key == "phase_current_a":
-            if value != previous[key]:
+            if any(abs(current_a - previous_a) >= 1 for current_a, previous_a in zip(value, previous[key])):
                 return True
         elif abs(value - previous[key]) >= (1 if key in {"soc", "ev_soc_pct"} else 200):
             return True

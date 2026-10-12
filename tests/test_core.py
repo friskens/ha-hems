@@ -267,6 +267,7 @@ def test_phase_current_partial_mapping_or_out_of_range_is_omitted():
 def test_phase_current_does_not_break_measurement_change_detection():
     previous = {"phase_current_a": [10, 10, 10]}
     assert not due(1010, 1000, 1000, 110, previous, previous)
+    assert not due(1020, 1000, 1000, 110, {"phase_current_a": [10.9, 10, 10]}, previous)
     assert due(1020, 1000, 1000, 110, {"phase_current_a": [11, 10, 10]}, previous)
 
 
