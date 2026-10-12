@@ -17,9 +17,10 @@ stödja de angivna kommandona innan denna version aktiveras.
 
 HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a9 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md).
 
-I a9 kan du valfritt välja fasström för L1, L2 och L3 från nätmätaren vid
-anslutningspunkten. Alla tre krävs; klienten skickar absoluta värden i A när
-de är färska och giltiga, och utelämnar hela fältet annars.
+I a9 kan du valfritt välja nätmätarens (smartmeterns) fasström för L1, L2 och
+L3 vid anslutningspunkten – välj inte växelriktarens egna fasströmmar. Alla tre
+krävs; klienten skickar absoluta värden i A när de är färska och giltiga, och
+utelämnar hela fältet annars.
 
 I a8 visas ett beslut om laster i kontrollsensorns attribut `loads` som en
 ordnad lista med samma fältnamn som i HEMS-svaret. Det är ett underlag för
