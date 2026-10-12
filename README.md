@@ -36,7 +36,9 @@ HEMS Client contains no inverter driver, Modbus implementation or device-specifi
 Requires Home Assistant 2025.3 or later. The configuration UI was manually checked in the earlier 0.1.0a3 alpha on HA 2026.9.3 with the test entry left disabled; the screenshots are retained as a UI reference. Live cloud exchanges, hardware control and broader version compatibility still require validation. Automated tests exercise the protocol and orchestration with fake HA services.
 
 1. In HACS, add `https://github.com/friskens/ha-hems` as a **custom repository**, category **Integration**.
-2. Enable prereleases if needed and download HEMS Client.
+2. Enable prereleases if needed and download a published HEMS Client release.
+   The default branch is intentionally not available in HACS, so updates have
+   a matching GitHub release announcement.
 3. Restart Home Assistant, then add **HEMS Client** under Settings → Devices & services.
 4. Enter the provider's HTTPS base address or complete endpoint and your API key. A base address automatically uses `/battery`; an explicit path is kept. Select fresh measurement sensors.
 5. Check the reported decisions and measurements in observation mode before configuring control scripts in the integration options.

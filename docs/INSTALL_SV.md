@@ -43,7 +43,7 @@ eller annan last.
   lokal regel i adaptern eller en HA-automation för den säkra åtgärd just din
   anläggning ska göra i dessa situationer.
 
-1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs.
+1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs. HACS erbjuder bara publicerade releaser, inte `main`, så att varje uppdatering har en matchande GitHub-releasetext.
 2. Installera, starta om HA och lägg till **HEMS Client**.
 3. Ange leverantörens HTTPS-basadress eller fullständiga endpoint och API-nyckel. En basadress får automatiskt `/battery`; en uttrycklig sökväg behålls. Nyckeln skickas endast i `X-Api-Key`.
 4. Välj sensorer för batteriets SOC, nätets effekt, batteriets effekt och en eller flera solproduktionssensorer. Nätimport och batteriladdning ska vara positiva; tecknen kan vändas i inställningarna.
