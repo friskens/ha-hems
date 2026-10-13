@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0a11
+
+- Add `contract/hems-contract.json`, a machine-readable form of the protocol:
+  inputs, local rules and outputs with entity names and the meaning of each
+  action. Add proposal 7 on a generic engine, user automations and a
+  command-followed check. Documentation only; no client code changes.
+
 ## 0.1.0a10
 
 - Document `enabled: false` on deferrable `loads[]` entries: the customer has
