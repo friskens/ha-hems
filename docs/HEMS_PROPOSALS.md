@@ -94,10 +94,19 @@ contract requires for the battery.
 send its fresh value in every exchange as `load_power_w[id]`. Apply the same freshness rules as for the
 other measurements: a stale, `unknown` or `unavailable` sensor means the key is omitted for that
 exchange, never sent as `0`. A fresh `0` is a valid measurement. Values are whole or decimal W,
-0–50 000. The service uses the value only while it has the load switched on and shows it on the
+0–50 000. The service uses the value while it has the load switched on and also while the customer
+has turned off its control of the load (`enabled: false` in the entry), and shows it on the
 customer's HEMS page within one exchange; a value far above the rated power is treated as a
 misconnected sensor and discarded. The response carries no acknowledgement of the value; status 200
 means the whole request was accepted.
+
+**Control turned off by the customer.** An entry with `enabled: false` (see PROTOCOL.md) stays in
+the list with `action: "off"`. Under the change-only rule its `off` stops the load once and nothing
+more is written, so the customer can operate the load freely; a run the customer starts from the
+HEMS pages still arrives as `on`. Two suggestions: expose `enabled` on the Decision sensor's load
+entries (boolean, omitted when the service omits it) so local automations can tell control turned
+off from an ordinary `off`; and after a restart or a reconnection, do not write `off` to a load whose
+entry has `enabled: false` — only an actual `on→off` change stops it.
 
 ## 6. Per-phase current at the main fuse
 
