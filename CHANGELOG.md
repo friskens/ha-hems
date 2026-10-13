@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0a10
+
+- Document `enabled: false` on deferrable `loads[]` entries: the customer has
+  turned off the service's control of the load. The entry stays in the list
+  with `action: "off"`, and `load_power_w` is still accepted for it. Add the
+  matching note to proposal 5. Documentation only; the client ignores the
+  field.
+
 ## 0.1.0a9
 
 - Send optional `phase_current_a` telemetry when all three configured main-fuse
