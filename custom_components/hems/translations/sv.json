@@ -137,6 +137,12 @@
       "message": "Konfigurera ett skript för verkställande och kommandon som stöds innan styrningen aktiveras."
     }
   },
+  "issues": {
+    "telemetry_input_invalid": {
+      "title": "HEMS telemetriingång behöver åtgärdas",
+      "description": "Den konfigurerade källan för {input} saknas eller matchar inte längre HEMS-kontraktet. Välj en kompatibel befintlig sensor i alternativen för HEMS Client."
+    }
+  },
   "selector": {
     "commands": {
       "options": {

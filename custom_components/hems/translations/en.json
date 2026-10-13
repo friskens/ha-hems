@@ -137,6 +137,12 @@
       "message": "Configure an apply script and supported commands before enabling control."
     }
   },
+  "issues": {
+    "telemetry_input_invalid": {
+      "title": "HEMS telemetry input needs attention",
+      "description": "The configured source for {input} is missing or no longer matches the HEMS contract. Select a compatible existing sensor in HEMS Client options."
+    }
+  },
   "selector": {
     "commands": {
       "options": {
