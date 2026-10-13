@@ -31,7 +31,8 @@ def test_interval(value, expected):
 @pytest.mark.parametrize(
     "payload",
     [
-        {"action": "unchanged"},
+        {"action": ""},
+        {"action": None},
         {"action": "pause", "command_interval_seconds": 0},
         {"action": "pause", "power_unit": "kW"},
         {"action": "pause", "soc": 101},
@@ -50,6 +51,12 @@ def test_load_absence_is_not_off():
     assert parse_response({"action": "pause"}, 100).loads is None
     assert parse_response({"action": "pause", "loads": None}, 100).loads is None
     assert parse_response({"action": "pause", "loads": []}, 100).loads == ()
+
+
+def test_unknown_future_action_is_visible_but_has_no_power_target():
+    decision = parse_response({"action": "future_action"}, 100)
+    assert decision.action == "future_action"
+    assert decision.effective == ("future_action", 0.0)
 
 
 def test_loads_preserve_the_contract_fields_for_local_automations():

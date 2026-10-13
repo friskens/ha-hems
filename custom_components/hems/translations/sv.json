@@ -119,11 +119,23 @@
       },
       "ev_soc": {
         "name": "Rapporterad laddnivå för bilen"
+      },
+      "power_target": {
+        "name": "Effektmål"
+      },
+      "command_interval": {
+        "name": "Kommandointervall"
+      },
+      "output": {
+        "name": "HEMS-utgång {id}"
       }
     },
     "binary_sensor": {
       "measurements": {
         "name": "Mätvärden klara"
+      },
+      "decision_fresh": {
+        "name": "Beslut färskt"
       }
     },
     "switch": {

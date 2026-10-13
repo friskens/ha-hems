@@ -3,8 +3,8 @@
 import time
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 
+from .dynamic_entities import HemsOutputSensor, OutputTracker
 from .entity import HemsEntity
-from .const import COMMANDS
 
 EXECUTION_STATES = [
     "starting",
@@ -20,8 +20,22 @@ EXECUTION_STATES = [
 
 async def async_setup_entry(hass, entry, async_add_entities):
     runtime = entry.runtime_data
+    output_tracker = OutputTracker()
+
+    def sync_outputs():
+        decision = runtime.decision
+        if decision is None:
+            return
+        new_entries = output_tracker.update(decision.loads)
+        if new_entries:
+            async_add_entities([HemsOutputSensor(runtime, output_tracker, item) for item in new_entries])
+
+    entry.async_on_unload(runtime.subscribe(sync_outputs))
     async_add_entities(
-        [HemsSensor(runtime, key) for key in ("decision", "execution", "connection", "ev_soc")]
+        [
+            HemsSensor(runtime, key)
+            for key in ("decision", "execution", "connection", "ev_soc", "power_target", "command_interval")
+        ]
     )
 
 
@@ -34,19 +48,28 @@ class HemsSensor(HemsEntity, SensorEntity):
         if key == "ev_soc":
             self._attr_native_unit_of_measurement = "%"
             self._attr_device_class = SensorDeviceClass.BATTERY
-        else:
+        elif key in {"decision", "execution", "connection"}:
             self._attr_device_class = SensorDeviceClass.ENUM
             self._attr_options = {
-                "decision": list(COMMANDS),
                 "execution": EXECUTION_STATES,
                 "connection": ["connected", "warning", "disconnected"],
-            }[key]
+            }.get(key)
+        elif key == "power_target":
+            self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_native_unit_of_measurement = "W"
+        elif key == "command_interval":
+            self._attr_device_class = SensorDeviceClass.DURATION
+            self._attr_native_unit_of_measurement = "s"
 
     @property
     def native_value(self):
         r = self.runtime
         if self.key == "decision":
             return r.decision.action if r.decision else None
+        if self.key == "power_target":
+            return r.decision.power_kw * 1000 if r.decision else None
+        if self.key == "command_interval":
+            return r.decision.interval if r.decision else None
         if self.key == "execution":
             return r.status
         if self.key == "ev_soc":
@@ -66,6 +89,7 @@ class HemsSensor(HemsEntity, SensorEntity):
                 "command_supported": r.command_supported,
                 "supported_commands": sorted(r.adapter.commands),
                 "command_interval_seconds": r.decision.interval,
+                "power_w": r.decision.power_kw * 1000,
             }
         if self.key == "execution":
             return {

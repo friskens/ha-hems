@@ -119,11 +119,23 @@
       },
       "ev_soc": {
         "name": "Reported EV state of charge"
+      },
+      "power_target": {
+        "name": "Power target"
+      },
+      "command_interval": {
+        "name": "Command interval"
+      },
+      "output": {
+        "name": "HEMS output {id}"
       }
     },
     "binary_sensor": {
       "measurements": {
         "name": "Measurements ready"
+      },
+      "decision_fresh": {
+        "name": "Decision fresh"
       }
     },
     "switch": {

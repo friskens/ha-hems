@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import math
 from urllib.parse import urlsplit, urlunsplit
 
-from .const import COMMANDS, DEFAULT_INTERVAL
+from .const import DEFAULT_INTERVAL
 
 
 class ProtocolError(ValueError):
@@ -68,7 +68,10 @@ class Decision:
 
 
 def parse_response(data, received_at):
-    if not isinstance(data, dict) or data.get("action") not in COMMANDS:
+    # Actions are service-owned extensible data.  A future action remains
+    # observable even when this client has no local presentation translation.
+    # Runtime code must still treat it as non-actuating unless explicitly known.
+    if not isinstance(data, dict) or not isinstance(data.get("action"), str) or not data["action"].strip():
         raise ProtocolError("invalid_action")
     action = data["action"]
     power = number(
@@ -124,6 +127,8 @@ def parse_response(data, received_at):
                     entry["power_w"] = load["power_w"]
             if type(load.get("reports_power")) is bool:
                 entry["reports_power"] = load["reports_power"]
+            if type(load.get("enabled")) is bool:
+                entry["enabled"] = load["enabled"]
             parsed.append(entry)
         parsed = tuple(parsed)
     return Decision(action, power, received_at, interval, parsed)
