@@ -1,20 +1,15 @@
-"""Independent telemetry and serialized adapter calls without hardware policy."""
+"""Telemetry exchange and decision presentation without equipment control."""
 
 import asyncio
 from datetime import timedelta
 import time
-import uuid
-
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
-from .adapter import ScriptAdapter, VerificationError
 from .const import DEFAULT_INTERVAL, DOMAIN, REQUIRED_FIELDS
 from .measurements import Observation, collect
 from .protocol import ProtocolError, due
-from .recovery import Recovery
 from .transport import AuthError, Client, TransportError
 
 
@@ -23,18 +18,16 @@ class Runtime:
         self.hass, self.entry = hass, entry
         self.options = entry.options
         self.client = Client(session, entry.data["endpoint"], entry.data["api_key"])
-        self.adapter = ScriptAdapter(hass, self.options.get("apply_script"), self.options.get("commands", []))
         self.store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
-        self.recovery = Recovery()
+        self.telemetry_enabled = True
         self.decision = None
         self.status, self.error = "starting", None
         self.measurements, self.invalid = {}, []
         self.previous = {}
         self.last_attempt = self.last_success = 0
-        self.last_receipt = None
         self.interval = DEFAULT_INTERVAL
         self.listeners = set()
-        self._tick_task = self._write_task = None
+        self._tick_task = None
         self._cancel_timer = None
         self._reauth_started = False
         self._closing = False
@@ -48,12 +41,6 @@ class Runtime:
             state.state, state.attributes.get("unit_of_measurement"), state.last_reported.timestamp()
         )
 
-    @property
-    def command_supported(self):
-        if self.decision is None:
-            return None
-        return self.decision.action == "observe" or self.decision.action in self.adapter.commands
-
     def subscribe(self, callback):
         self.listeners.add(callback)
         return lambda: self.listeners.discard(callback)
@@ -65,14 +52,16 @@ class Runtime:
     async def save(self):
         await self.store.async_save(
             {
-                "requested": self.recovery.requested,
+                "telemetry_enabled": self.telemetry_enabled,
             }
         )
 
     async def start(self):
         stored = await self.store.async_load() or {}
-        if stored.get("requested"):
-            self.recovery.request(True, time.time())
+        # Older versions persisted ``requested`` for adapter control. It now
+        # maps only to whether this client posts telemetry; it never restores
+        # or changes a hardware setting.
+        self.telemetry_enabled = stored.get("telemetry_enabled", stored.get("requested", True))
         self._cancel_timer = async_track_time_interval(self.hass, self.schedule_tick, timedelta(seconds=5))
         self.schedule_tick(None)
 
@@ -82,27 +71,11 @@ class Runtime:
             self._tick_task = self.hass.async_create_task(self.tick())
 
     async def request(self, enabled):
-        if enabled and (
-            not self.adapter.apply_script or not self.adapter.commands
-        ):
-            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="adapter_required")
-        self.recovery.request(enabled, time.time())
-        await self.cancel_write()
+        self.telemetry_enabled = enabled
         self.status = "starting" if enabled else "stopped"
         await self.save()
         self.publish()
         self.schedule_tick(None)
-
-    async def cancel_write(self):
-        if self._write_task and not self._write_task.done():
-            self._write_task.cancel()
-            try:
-                await self._write_task
-            except asyncio.CancelledError:
-                pass
-            # A cancelled script may have changed hardware before it stopped.
-            # Its previous receipt can no longer verify the desired state.
-            self.recovery.verified = None
 
     async def fail(self, reason):
         self.error = reason
@@ -110,13 +83,13 @@ class Runtime:
 
     async def tick(self):
         now = time.time()
-        if self.recovery.requested and now - self.last_success >= 180:
+        if self.telemetry_enabled and now - self.last_success >= 180:
             await self.fail("communication_timeout")
         self.measurements, self.invalid = collect(self.options, self.observe, now)
         required_missing = any(field not in self.measurements for field in REQUIRED_FIELDS)
         if required_missing:
             await self.fail("measurements_unavailable")
-        elif due(
+        elif self.telemetry_enabled and due(
             now, self.last_attempt, self.last_success, self.interval, self.measurements, self.previous
         ) and (not self._exchange_failed or now - self.last_attempt >= 60):
             self.last_attempt = now
@@ -140,60 +113,7 @@ class Runtime:
                 self.previous = dict(self.measurements)
                 if self.status == "observation_error":
                     self.error = None
-                if not self.recovery.requested:
-                    self.status = "observing"
-                elif self.recovery.verified == decision.effective:
-                    self.status = "settings_verified"
-                elif self.recovery.failed == decision.effective:
-                    self.status = self.recovery.failed_status
-                    self.error = self.recovery.failed_error
-        if self.recovery.requested and self.command_supported is False:
-            self.status, self.error = "adapter_failed", "unsupported_adapter_command"
-        self.drive()
-        self.publish()
-
-    def drive(self):
-        if self._closing or (self._write_task and not self._write_task.done()):
-            return
-        now = time.time()
-        if self.command_supported is False:
-            return
-        if not self.recovery.requested or not self.decision:
-            return
-        if not 0 <= now - self.decision.received_at < 90:
-            return
-        if self.decision.action == "observe":
-            # Explicitly leaves current hardware settings unchanged, as requested.
-            self.status = "observing"
-            self.recovery.verified = None
-            return
-        effective = self.decision.effective
-        if self.recovery.verified != effective and self.recovery.failed != effective:
-            self._write_task = self.hass.async_create_task(self.apply(self.decision, effective))
-
-    async def apply(self, decision, effective=None):
-        effective = effective or decision.effective
-        self.status = "applying"
-        self.publish()
-        try:
-            receipt = await self.adapter.execute(*effective, str(uuid.uuid4()))
-        except VerificationError as err:
-            self.last_receipt = err.receipt
-            self.recovery.failed = effective
-            self.recovery.failed_status = self.status = (
-                "adapter_failed"
-                if str(err) in {"adapter_failed", "missing_adapter_script", "unsupported_adapter_command"}
-                else "verification_failed"
-            )
-            self.recovery.failed_error = self.error = str(err)
-        else:
-            self.recovery.verified = effective
-            self.recovery.failed = None
-            self.recovery.failed_status = None
-            self.recovery.failed_error = None
-            self.last_receipt = receipt
-            self.status, self.error = "settings_verified", None
-        await self.save()
+                self.status = "observing"
         self.publish()
 
     async def stop(self):
@@ -206,4 +126,3 @@ class Runtime:
                 await self._tick_task
             except asyncio.CancelledError:
                 pass
-        await self.cancel_write()

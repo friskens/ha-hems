@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Anslut till HEMS",
-        "description": "Ange leverantörens HTTPS-basadress eller fullständiga endpoint. En basadress får automatiskt /battery. Mätvärden skickas efter installationen; styrningen är avstängd från början.",
+        "description": "Ange leverantörens HTTPS-basadress eller fullständiga endpoint. En basadress får automatiskt /battery. HEMS Client läser valda mätvärden och visar HEMS-beslut; dina automationer styr utrustningen.",
         "data": {
           "name": "Namn",
           "endpoint": "HTTPS-adress",
@@ -50,7 +50,7 @@
     "step": {
       "init": {
         "title": "Mätkällor",
-        "description": "När du sparar laddas integrationen om. Klienten ändrar inte hårdvarans inställningar vid omladdning; lokal adapterpolicy äger eventuell fallback.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
+        "description": "När du sparar laddas integrationen om. HEMS Client ändrar aldrig hårdvarans inställningar.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
         "data": {
           "soc_entity": "Batteriets laddnivå",
           "grid_entity": "Näteffekt",
@@ -64,19 +64,10 @@
           "invert_grid_power": "Vänd tecknet för näteffekt",
           "invert_battery_power": "Vänd tecknet för batterieffekt"
         }
-      },
-      "adapter": {
-        "title": "Valfri styradapter",
-        "description": "Lämna tomt för enbart observation. Skripten måste skriva i rätt ordning och läsa tillbaka hårdvarans faktiska inställningar enligt adapterkontraktet i repot. Välj bara verifierade kommandon.",
-        "data": {
-          "apply_script": "Skript för att verkställa och verifiera",
-          "commands": "Kommandon som stöds"
-        }
       }
     },
     "error": {
       "missing_solar": "Välj minst en sensor för solproduktion.",
-      "incomplete_adapter": "Välj ett skript för verkställande och minst ett kommando, eller töm alla adapterfält.",
       "incomplete_phase_current": "Välj alla tre fasströmssensorer, eller lämna alla tomma."
     }
   },
@@ -102,11 +93,7 @@
           "starting": "Startar",
           "observing": "Observerar",
           "stopped": "Stoppad",
-          "observation_error": "Mät- eller kommunikationsfel",
-          "applying": "Verkställer kommando",
-          "settings_verified": "Inställningar verifierade",
-          "adapter_failed": "Adapterfel",
-          "verification_failed": "Adapterns verifiering misslyckades"
+          "observation_error": "Mät- eller kommunikationsfel"
         }
       },
       "connection": {
@@ -140,34 +127,14 @@
     },
     "switch": {
       "control": {
-        "name": "Styrning begärd"
+        "name": "Telemetriutbyte"
       }
-    }
-  },
-  "exceptions": {
-    "adapter_required": {
-      "message": "Konfigurera ett skript för verkställande och kommandon som stöds innan styrningen aktiveras."
     }
   },
   "issues": {
     "telemetry_input_invalid": {
       "title": "HEMS telemetriingång behöver åtgärdas",
       "description": "Den konfigurerade källan för {input} saknas eller matchar inte längre HEMS-kontraktet. Välj en kompatibel befintlig sensor i alternativen för HEMS Client."
-    }
-  },
-  "selector": {
-    "commands": {
-      "options": {
-        "charge": "Ladda",
-        "chargesolar": "Ladda från sol",
-        "selfconsumption": "Egenförbrukning",
-        "sellsolar": "Sälj solel",
-        "pause": "Mjuk paus",
-        "export": "Exportera",
-        "peakshaving": "Effekttoppsbegränsning",
-        "zeroexport": "Ingen export",
-        "observe": "Observera"
-      }
     }
   }
 }

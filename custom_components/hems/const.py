@@ -3,6 +3,8 @@
 DOMAIN = "hems"
 VERSION = "0.1.0a11"
 PLATFORMS = ["sensor", "binary_sensor", "switch"]
+# Known decision states for translations only. They are not a list of commands
+# this integration can execute; HEMS Client never actuates equipment.
 COMMANDS = (
     "charge",
     "chargesolar",

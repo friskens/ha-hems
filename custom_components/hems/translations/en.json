@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Connect to HEMS",
-        "description": "Enter your provider's HTTPS base address or complete endpoint. A base address automatically uses /battery. Measurements are sent after setup; device control starts disabled.",
+        "description": "Enter your provider's HTTPS base address or complete endpoint. A base address automatically uses /battery. HEMS Client reads the selected measurements and publishes HEMS decisions; your automations control equipment.",
         "data": {
           "name": "Name",
           "endpoint": "HTTPS endpoint",
@@ -50,7 +50,7 @@
     "step": {
       "init": {
         "title": "Measurement sources",
-        "description": "Saving options reloads the integration. The client does not change hardware settings during reload; local adapter policy owns any fallback.\n\nNote: HEMS does not check the age of the EV state of charge. Ensure the source integration keeps it current and marks it unavailable when it cannot be used.",
+        "description": "Saving options reloads the integration. HEMS Client never changes hardware settings.\n\nNote: HEMS does not check the age of the EV state of charge. Ensure the source integration keeps it current and marks it unavailable when it cannot be used.",
         "data": {
           "soc_entity": "Battery SOC",
           "grid_entity": "Grid power",
@@ -64,19 +64,10 @@
           "invert_grid_power": "Invert grid power sign",
           "invert_battery_power": "Invert battery power sign"
         }
-      },
-      "adapter": {
-        "title": "Optional device adapter",
-        "description": "Leave empty for observation only. Scripts must implement ordered writes and independent hardware readback according to the repository's adapter contract. Select only verified supported commands.",
-        "data": {
-          "apply_script": "Apply and verify script",
-          "commands": "Supported commands"
-        }
       }
     },
     "error": {
       "missing_solar": "Select at least one PV production source.",
-      "incomplete_adapter": "Select an apply script and at least one supported command, or clear all adapter fields.",
       "incomplete_phase_current": "Select all three phase-current sensors, or leave all of them empty."
     }
   },
@@ -102,11 +93,7 @@
           "starting": "Starting",
           "observing": "Observing",
           "stopped": "Stopped",
-          "observation_error": "Measurement or communication error",
-          "applying": "Applying command",
-          "settings_verified": "Settings verified",
-          "adapter_failed": "Adapter failed",
-          "verification_failed": "Adapter verification failed"
+          "observation_error": "Measurement or communication error"
         }
       },
       "connection": {
@@ -140,34 +127,14 @@
     },
     "switch": {
       "control": {
-        "name": "Control requested"
+        "name": "Telemetry exchange"
       }
-    }
-  },
-  "exceptions": {
-    "adapter_required": {
-      "message": "Configure an apply script and supported commands before enabling control."
     }
   },
   "issues": {
     "telemetry_input_invalid": {
       "title": "HEMS telemetry input needs attention",
       "description": "The configured source for {input} is missing or no longer matches the HEMS contract. Select a compatible existing sensor in HEMS Client options."
-    }
-  },
-  "selector": {
-    "commands": {
-      "options": {
-        "charge": "Charge",
-        "chargesolar": "Charge from solar",
-        "selfconsumption": "Self-consumption",
-        "sellsolar": "Sell solar",
-        "pause": "Soft pause",
-        "export": "Export",
-        "peakshaving": "Peak shaving",
-        "zeroexport": "Zero export",
-        "observe": "Observe"
-      }
     }
   }
 }

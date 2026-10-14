@@ -4,10 +4,8 @@ import types
 
 import pytest
 
-from custom_components.hems.adapter import VerificationError, validate_receipt
 from custom_components.hems.measurements import Observation, collect, normalize
 from custom_components.hems.protocol import Decision, ProtocolError, due, endpoint, parse_response
-from custom_components.hems.recovery import Recovery
 
 
 @pytest.mark.parametrize("value", [None, True, "1", -1, float("nan"), float("inf")])
@@ -153,8 +151,6 @@ def test_decision_sensor_exposes_list_or_none_for_loads(monkeypatch):
     runtime = types.SimpleNamespace(
         entry=types.SimpleNamespace(entry_id="test", title="Test"),
         decision=parse_response({"action": "pause", "loads": [{"id": "ev_1", "action": "charge"}]}, 100),
-        command_supported=True,
-        adapter=types.SimpleNamespace(commands=set()),
     )
     sensor = HemsSensor(runtime, "decision")
     assert sensor.extra_state_attributes["loads"] == [{"id": "ev_1", "action": "charge"}]
@@ -248,8 +244,6 @@ def test_phase_current_requires_three_fresh_sensors_and_uses_magnitudes():
     sample, invalid = collect(options, states.get, 130)
     assert "phase_current_a" not in sample
     assert "phase_current_a" in invalid
-
-
 def test_phase_current_partial_mapping_or_out_of_range_is_omitted():
     sample, invalid = collect(
         {"phase_l1_current_entity": "l1"},
@@ -276,48 +270,3 @@ def test_phase_current_does_not_break_measurement_change_detection():
     assert not due(1010, 1000, 1000, 110, previous, previous)
     assert not due(1020, 1000, 1000, 110, {"phase_current_a": [10.9, 10, 10]}, previous)
     assert due(1020, 1000, 1000, 110, {"phase_current_a": [11, 10, 10]}, previous)
-
-
-def test_recovery_tracks_requested_and_failed_effective_command():
-    recovery = Recovery()
-    recovery.request(True, 100)
-    assert recovery.requested
-    recovery.failed = ("pause", 0)
-    assert recovery.failed == ("pause", 0)
-    recovery.request(False, 460)
-    assert not recovery.requested
-    assert recovery.failed is None
-
-
-def test_new_control_request_clears_adapter_outcomes():
-    recovery = Recovery()
-    recovery.verified = ("pause", 0)
-    recovery.failed = ("export", 1000)
-    recovery.failed_status = "adapter_failed"
-    recovery.failed_error = "adapter_failed"
-    recovery.request(True, 100)
-    assert recovery.verified is None
-    assert recovery.failed is None
-    assert recovery.failed_status is None
-    assert recovery.failed_error is None
-
-
-def test_receipt_is_bound_to_request_and_fresh_readback():
-    receipt = {
-        "verified": True,
-        "token": "nonce",
-        "command": "pause",
-        "power_w": 0,
-        "readback_at": 105,
-        "readback": {"mode": 3},
-    }
-    validate_receipt(receipt, "pause", 0, "nonce", 100, 110)
-    for changes in (
-        {"token": "old"},
-        {"readback_at": 99},
-        {"readback": {}},
-        {"verified": False},
-        {"power_w": 1000},
-    ):
-        with pytest.raises(VerificationError):
-            validate_receipt({**receipt, **changes}, "pause", 0, "nonce", 100, 110)

@@ -7,7 +7,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import COMMANDS, DOMAIN, PHASE_CURRENT_ENTITY_KEYS
+from .const import DOMAIN, PHASE_CURRENT_ENTITY_KEYS
 from .protocol import ProtocolError, endpoint
 
 
@@ -38,18 +38,6 @@ def phase_current_configuration_complete(data):
     configured = [bool(data.get(key)) for key in PHASE_CURRENT_ENTITY_KEYS]
     return not any(configured) or all(configured)
 
-
-def adapter_schema(defaults):
-    schema = {}
-    for key in ("apply_script",):
-        marker = vol.Optional(key, default=defaults[key]) if defaults.get(key) else vol.Optional(key)
-        schema[marker] = selector.EntitySelector(selector.EntitySelectorConfig(domain="script"))
-    schema[vol.Optional("commands", default=defaults.get("commands", []))] = selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=[v for v in COMMANDS if v != "observe"], multiple=True, translation_key="commands"
-        )
-    )
-    return vol.Schema(schema)
 
 
 class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -98,7 +86,6 @@ class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if user_input is not None
             else {},
         )
-
     async def async_step_reauth(self, entry_data):
         return await self.async_step_reauth_confirm()
 
@@ -115,7 +102,6 @@ class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
         )
-
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
@@ -125,8 +111,9 @@ class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class HemsOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         if user_input is not None and user_input.get("solar_entities") and phase_current_configuration_complete(user_input):
-            self.pending = user_input
-            return await self.async_step_adapter()
+            # Discard legacy adapter settings when options are saved. The
+            # client only reads these sources and publishes HEMS decisions.
+            return self.async_create_entry(title="", data=user_input)
         return self.async_show_form(
             step_id="init",
             data_schema=measurement_schema(self.config_entry.options),
@@ -137,18 +124,5 @@ class HemsOptionsFlow(config_entries.OptionsFlow):
             else {},
         )
 
-    async def async_step_adapter(self, user_input=None):
-        errors = {}
-        if user_input is not None:
-            selected = (
-                bool(user_input.get("apply_script"))
-                or bool(user_input.get("commands"))
-            )
-            complete = all(user_input.get(k) for k in ("apply_script", "commands"))
-            if selected and not complete:
-                errors["base"] = "incomplete_adapter"
-            else:
-                return self.async_create_entry(title="", data={**self.pending, **user_input})
-        return self.async_show_form(
-            step_id="adapter", data_schema=adapter_schema(self.config_entry.options), errors=errors
-        )
+    # This flow deliberately has no adapter/options step: local automations
+    # consume the exposed decision and are solely responsible for execution.

@@ -1,4 +1,4 @@
-"""Decision and execution status. Measured power is not inferred from commands."""
+"""Decision and telemetry status. Measured power is never inferred from commands."""
 
 import time
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
@@ -11,10 +11,6 @@ EXECUTION_STATES = [
     "observing",
     "stopped",
     "observation_error",
-    "applying",
-    "settings_verified",
-    "adapter_failed",
-    "verification_failed",
 ]
 
 
@@ -86,20 +82,14 @@ class HemsSensor(HemsEntity, SensorEntity):
                 "received_at": r.decision.received_at,
                 "fresh": 0 <= time.time() - r.decision.received_at < 90,
                 "loads": [dict(load) for load in r.decision.loads] if r.decision.loads is not None else None,
-                "command_supported": r.command_supported,
-                "supported_commands": sorted(r.adapter.commands),
                 "command_interval_seconds": r.decision.interval,
                 "power_w": r.decision.power_kw * 1000,
             }
         if self.key == "execution":
             return {
                 "error": r.error,
-                "requested": r.recovery.requested,
+                "telemetry_enabled": r.telemetry_enabled,
                 "invalid_fields": r.invalid,
-                "verified_effective_command": r.recovery.verified,
-                "failed_effective_command": r.recovery.failed,
-                "adapter_receipt": r.last_receipt,
-                "command_supported": r.command_supported,
                 "telemetry_interval_seconds": r.interval,
             }
         return None
