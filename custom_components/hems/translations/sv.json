@@ -6,6 +6,17 @@
         "title": "Anslut till HEMS",
         "description": "Ange leverantörens HTTPS-basadress eller fullständiga endpoint. En basadress får automatiskt /battery. HEMS Client läser valda mätvärden och visar HEMS-beslut; dina automationer styr utrustningen.",
         "data": {
+          "telemetry_battery_soc": "Batteriets laddnivå",
+          "telemetry_grid_power": "Näteffekt",
+          "telemetry_battery_power": "Batterieffekt",
+          "telemetry_solar_sources": "Sensorer för solproduktion",
+          "telemetry_ev_power": "Bilens laddeffekt (valfritt)",
+          "telemetry_ev_soc": "Bilens laddnivå (valfritt)",
+          "telemetry_grid_meter_current_l1": "Nätmätarens fasström L1 (valfritt)",
+          "telemetry_grid_meter_current_l2": "Nätmätarens fasström L2 (valfritt)",
+          "telemetry_grid_meter_current_l3": "Nätmätarens fasström L3 (valfritt)",
+          "telemetry_grid_power_invert": "Vänd tecknet för näteffekt",
+          "telemetry_battery_power_invert": "Vänd tecknet för batterieffekt",
           "name": "Namn",
           "endpoint": "HTTPS-adress",
           "api_key": "API-nyckel"
@@ -38,6 +49,7 @@
     "error": {
       "invalid_endpoint": "Ange en HTTPS-basadress eller endpoint utan inloggningsuppgifter, frågeparametrar eller fragment.",
       "invalid_key": "Ange en API-nyckel.",
+      "invalid_measurements": "Välj alla obligatoriska källor och alla delar i en vald ingångsgrupp.",
       "missing_solar": "Välj minst en sensor för solproduktion.",
       "incomplete_phase_current": "Välj alla tre fasströmssensorer, eller lämna alla tomma."
     },
@@ -52,6 +64,17 @@
         "title": "Mätkällor",
         "description": "När du sparar laddas integrationen om. HEMS Client ändrar aldrig hårdvarans inställningar.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
         "data": {
+          "telemetry_battery_soc": "Batteriets laddnivå",
+          "telemetry_grid_power": "Näteffekt",
+          "telemetry_battery_power": "Batterieffekt",
+          "telemetry_solar_sources": "Sensorer för solproduktion",
+          "telemetry_ev_power": "Bilens laddeffekt (valfritt)",
+          "telemetry_ev_soc": "Bilens laddnivå (valfritt)",
+          "telemetry_grid_meter_current_l1": "Nätmätarens fasström L1 (valfritt)",
+          "telemetry_grid_meter_current_l2": "Nätmätarens fasström L2 (valfritt)",
+          "telemetry_grid_meter_current_l3": "Nätmätarens fasström L3 (valfritt)",
+          "telemetry_grid_power_invert": "Vänd tecknet för näteffekt",
+          "telemetry_battery_power_invert": "Vänd tecknet för batterieffekt",
           "soc_entity": "Batteriets laddnivå",
           "grid_entity": "Näteffekt",
           "battery_entity": "Batterieffekt",
@@ -67,6 +90,7 @@
       }
     },
     "error": {
+      "invalid_measurements": "Välj alla obligatoriska källor och alla delar i en vald ingångsgrupp.",
       "missing_solar": "Välj minst en sensor för solproduktion.",
       "incomplete_phase_current": "Välj alla tre fasströmssensorer, eller lämna alla tomma."
     }

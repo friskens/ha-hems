@@ -58,6 +58,9 @@ class ContractInput:
     device_class: str | None
     units: tuple[str, ...]
     stale_after_s: int | None
+    multiple: bool
+    group: str | None
+    options: tuple[str, ...]
     definition: Mapping[str, Any]
 
 
@@ -101,6 +104,17 @@ def _validate_input(key: str, definition: Any) -> ContractInput:
     stale_after_s = item.get("stale_after_s")
     if stale_after_s is not None:
         _positive_int(stale_after_s, f"input_{key}_stale_after_s")
+    multiple = item.get("multiple", False)
+    if type(multiple) is not bool:
+        raise ContractError(f"invalid_input_{key}_multiple")
+    group = item.get("group")
+    if group is not None and (not isinstance(group, str) or not group):
+        raise ContractError(f"invalid_input_{key}_group")
+    raw_options = item.get("options", [])
+    if not isinstance(raw_options, list) or not all(
+        isinstance(option, str) and option for option in raw_options
+    ):
+        raise ContractError(f"invalid_input_{key}_options")
     return ContractInput(
         key=key,
         field=field,
@@ -109,6 +123,9 @@ def _validate_input(key: str, definition: Any) -> ContractInput:
         device_class=device_class,
         units=tuple(raw_units),
         stale_after_s=stale_after_s,
+        multiple=multiple,
+        group=group,
+        options=tuple(raw_options),
         definition=_readonly(item),
     )
 

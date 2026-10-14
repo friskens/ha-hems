@@ -5,6 +5,8 @@ import math
 from typing import Mapping
 
 from .const import PHASE_CURRENT_ENTITY_KEYS
+from .contract import ContractError, load_bundled_contract
+from .telemetry_config import is_selectable, option_flag_key, selected_entities
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,13 @@ def collect_with_sources(options, observe, now, max_age=300):
     contract-driven options flow can supply more inputs, but it must not turn
     arbitrary contract expressions into executable collection logic.
     """
+    if any(key.startswith("telemetry_") for key in options):
+        try:
+            return collect_contract_with_sources(options, observe, now, load_bundled_contract())
+        except ContractError:
+            # Never send an unchecked shape when the packaged contract is
+            # unavailable or invalid. Runtime surfaces this diagnostically.
+            return {}, ["contract"], {}
     # Grid: +import. Battery: +charge. Solar: nonnegative DC production.
     sample, invalid, reported = {}, [], {}
     mapping = {
@@ -138,3 +147,72 @@ class MeasurementCache:
         if stale:
             payload["stale"] = stale
         return payload
+def collect_contract_with_sources(options, observe, now, contract):
+    """Collect the supported declarative input surface from validated metadata.
+
+    This recognizes only the fixed unit conversions and aggregation already
+    defined by the HEMS exchange.  It deliberately does not run ``rules`` or
+    ``expression`` text carried by the contract.
+    """
+    sample, invalid, reported = {}, [], {}
+    groups = {}
+    for input_spec in contract.inputs.values():
+        if not is_selectable(input_spec):
+            continue
+        entities = selected_entities(input_spec, options)
+        if not entities:
+            if input_spec.required:
+                invalid.append(input_spec.field)
+            continue
+        kind = (
+            "soc"
+            if input_spec.device_class == "battery"
+            else "current"
+            if input_spec.device_class == "current"
+            else "power"
+        )
+        invert = "invert" in input_spec.options and bool(
+            options.get(option_flag_key(input_spec.key, "invert"), False)
+        )
+        observations = [observe(entity) for entity in entities]
+        values = [
+            normalize(observation, now, kind, input_spec.stale_after_s, invert)
+            for observation in observations
+        ]
+        if any(value is None for value in values):
+            invalid.append(input_spec.field)
+            continue
+        if input_spec.field == "solar_power" and any(value < 0 for value in values):
+            invalid.append(input_spec.field)
+            continue
+        if input_spec.group:
+            groups.setdefault(input_spec.group, []).append((input_spec, values[0]))
+        elif input_spec.multiple:
+            # The current contract's only selectable aggregate is PV power.
+            # Future aggregation kinds need an explicit declarative building
+            # block before this client can consume them.
+            if input_spec.field == "solar_power":
+                sample[input_spec.field] = sum(values)
+                reported[input_spec.field] = min(
+                    observation.reported_at for observation in observations if observation is not None
+                )
+            else:
+                invalid.append(input_spec.field)
+        else:
+            sample[input_spec.field] = values[0]
+            reported[input_spec.field] = observations[0].reported_at
+    for group, members in groups.items():
+        if group != "phase_current" or len(members) != 3:
+            invalid.append("phase_current_a")
+            continue
+        ordered = sorted(members, key=lambda member: member[0].definition.get("index", -1))
+        values = [abs(value) for _, value in ordered]
+        if any(value > 250 for value in values):
+            invalid.append("phase_current_a")
+        else:
+            sample["phase_current_a"] = values
+            reported["phase_current_a"] = min(
+                observe(entity).reported_at for input_spec, _value in ordered
+                for entity in selected_entities(input_spec, options)
+            )
+    return sample, invalid, reported
