@@ -35,7 +35,7 @@ Sensorformuläret är rullningsbart. Bilens källintegration ansvarar för att S
 
 Installation through HACS, config creation, options saving and unloading were
 checked on this HA version. The test entry was left disabled with its real
-measurement sources saved and no control adapter configured. An invalid required
+measurement sources saved. An invalid required
 source prevented telemetry during initial setup; the real source was saved only
 after disabling the entry. The existing controller remained separate.
 
@@ -43,5 +43,12 @@ This validates installation/configuration only. It does not validate live cloud
 exchanges, hardware control, or compatibility across all supported HA versions.
 
 Installation via HACS, skapande av konfiguration, sparande av alternativ och
-inaktivering har kontrollerats. Testposten lämnades avstängd med sparade mätkällor
-och utan styradapter. Ingen parallell telemetri eller hårdvarustyrning testades.
+inaktivering har kontrollerats. Testposten lämnades avstängd med sparade mätkällor.
+Ingen parallell telemetri eller hårdvarustyrning testades.
+
+The pictured adapter wording belongs to the historical 0.1 UI. Version 0.2 has
+no adapter setup: it presents HEMS decisions for local user-owned automations.
+
+Den avbildade adaptertexten hör till det historiska 0.1-gränssnittet. Version
+0.2 saknar adapterinställning och visar i stället HEMS-beslut för lokala
+användarägda automationer.
