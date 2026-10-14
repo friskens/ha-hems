@@ -106,6 +106,7 @@ def followed_status(
     *,
     action: str | None,
     received_at: float | None,
+    decision_since: float | None = None,
     observation: bool | None,
     observed_at: float | None,
     now: float,
@@ -122,13 +123,17 @@ def followed_status(
         return FollowedStatus("cannot_tell", "no_decision", action, received_at)
     if not decision_is_fresh(received_at, now):
         return FollowedStatus("cannot_tell", "decision_stale", action, received_at)
-    if now - received_at < grace_seconds:
-        return FollowedStatus("waiting", "grace_period", action, received_at)
+    # Communication may refresh an unchanged decision every exchange.  Keep
+    # that fresh separately from the time the action itself was introduced,
+    # otherwise a three-minute observation window could never elapse.
+    since = decision_since if decision_since is not None else received_at
+    if now - since < grace_seconds:
+        return FollowedStatus("waiting", "grace_period", action, since)
     if observation is None or observed_at is None or observed_at < received_at:
         return FollowedStatus("cannot_tell", "no_current_observation", action, received_at)
     return FollowedStatus(
         "following" if observation else "not_following",
         "observation_matches" if observation else "observation_differs",
         action,
-        received_at,
+        since,
     )

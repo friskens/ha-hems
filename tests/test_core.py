@@ -223,7 +223,9 @@ def test_collect_never_substitutes_zero_and_sums_solar():
     assert sample == {"soc": 50, "grid_power": -2000, "battery_power": 1000, "solar_power": 2500}
     assert invalid == ["ev_soc_pct"]
     states["pv2"] = Observation(500, "W", 0)
-    assert "solar_power" not in collect(options, states.get, 130)[0]
+    # A slow upstream report remains usable until the contract's 300-second
+    # stale boundary; runtime then keeps the last valid value and marks it.
+    assert "solar_power" not in collect(options, states.get, 401)[0]
 
 
 def test_last_valid_measurement_is_sent_and_marked_stale_after_contract_limit():
@@ -275,7 +277,7 @@ def test_phase_current_requires_three_fresh_sensors_and_uses_magnitudes():
     assert sample["phase_current_a"] == [12, 1.5, 0]
     assert "phase_current_a" not in invalid
     states["l3"] = Observation(1, "A", 0)
-    sample, invalid = collect(options, states.get, 130)
+    sample, invalid = collect(options, states.get, 401)
     assert "phase_current_a" not in sample
     assert "phase_current_a" in invalid
 def test_phase_current_partial_mapping_or_out_of_range_is_omitted():

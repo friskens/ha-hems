@@ -62,28 +62,28 @@ def collect_with_sources(options, observe, now, max_age=300):
         "ev_power_w": "ev_power_entity",
         "ev_soc_pct": "ev_soc_entity",
     }
-    for field, config in mapping.items():
+    for measurement_field, config in mapping.items():
         entity = options.get(config)
         if not entity:
-            if field in ("soc", "grid_power", "battery_power"):
-                invalid.append(field)
+            if measurement_field in ("soc", "grid_power", "battery_power"):
+                invalid.append(measurement_field)
             continue
         # EV SOC freshness belongs to its source integration. Legacy timeout and
         # timestamp options are intentionally ignored, including existing entries.
-        age = None if field == "ev_soc_pct" else max_age
+        age = None if measurement_field == "ev_soc_pct" else max_age
         obs = observe(entity)
         value = normalize(
             obs,
             now,
-            "soc" if field in ("soc", "ev_soc_pct") else "power",
+            "soc" if measurement_field in ("soc", "ev_soc_pct") else "power",
             age,
-            options.get("invert_" + field, False),
+            options.get("invert_" + measurement_field, False),
         )
-        if value is None or (field == "ev_power_w" and value < 0):
-            invalid.append(field)
+        if value is None or (measurement_field == "ev_power_w" and value < 0):
+            invalid.append(measurement_field)
         else:
-            sample[field] = value
-            reported[field] = obs.reported_at
+            sample[measurement_field] = value
+            reported[measurement_field] = obs.reported_at
     solar_observations = [observe(entity) for entity in options.get("solar_entities", [])]
     solar = [normalize(observation, now, "power", max_age) for observation in solar_observations]
     if not solar or any(value is None or value < 0 for value in solar):
@@ -216,3 +216,9 @@ def collect_contract_with_sources(options, observe, now, contract):
                 for entity in selected_entities(input_spec, options)
             )
     return sample, invalid, reported
+
+
+def collect_contract(options, observe, now, contract):
+    """Compatibility wrapper for contract-driven callers and focused tests."""
+    sample, invalid, _reported = collect_contract_with_sources(options, observe, now, contract)
+    return sample, invalid

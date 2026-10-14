@@ -39,14 +39,19 @@ def test_connection_states_and_freshness_are_conservative():
 
 def test_followed_status_never_claims_a_vendor_command_was_applied():
     waiting = followed_status(
-        action="charge", received_at=1000, observation=True, observed_at=1001, now=1100
+        action="charge", received_at=1000, observation=True, observed_at=1001, now=1050
     )
     assert waiting.state == "waiting"
     unknown = followed_status(
-        action="charge", received_at=1000, observation=None, observed_at=None, now=1200
+        action="charge", received_at=1000, observation=None, observed_at=None, now=1050
     )
-    assert (unknown.state, unknown.reason) == ("cannot_tell", "no_current_observation")
+    assert (unknown.state, unknown.reason) == ("waiting", "grace_period")
     mismatch = followed_status(
-        action="charge", received_at=1000, observation=False, observed_at=1190, now=1200
+        action="charge",
+        received_at=1190,
+        decision_since=1000,
+        observation=False,
+        observed_at=1190,
+        now=1200,
     )
     assert mismatch.state == "not_following"
