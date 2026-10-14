@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +15,16 @@ from custom_components.hems.contract import (
 
 def bundled_data():
     return json.loads(bundled_contract_path().read_text(encoding="utf-8"))
+
+
+def authoritative_contract_path() -> Path:
+    """Return the co-maintainer-owned source contract in this checkout."""
+    return Path(__file__).resolve().parents[1] / "contract" / "hems-contract.json"
+
+
+def test_packaged_contract_matches_the_authoritative_contract_exactly():
+    """A HACS installation must ship the same contract documented in the repo."""
+    assert bundled_contract_path().read_bytes() == authoritative_contract_path().read_bytes()
 
 
 def test_loads_authoritative_bundled_contract_as_read_only_data():

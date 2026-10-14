@@ -175,14 +175,15 @@ def parse_contract_json(content: str | bytes) -> HemsContract:
 
 
 def bundled_contract_path() -> Path:
-    """Locate the checked-in contract used by source and test installations.
+    """Locate the contract packaged with the installed integration.
 
-    Release packaging must include this file alongside the integration before a
-    remote contract endpoint is enabled.  Keeping this explicit prevents a
-    silently missing bundled contract from falling back to unvalidated network
-    data.
+    The authoritative source is maintained at repository root in
+    ``contract/hems-contract.json``. CI verifies the packaged copy is byte for
+    byte identical before release. Keeping the runtime lookup inside the
+    integration prevents HACS installations from depending on repository-only
+    files.
     """
-    return Path(__file__).resolve().parents[2] / "contract" / "hems-contract.json"
+    return Path(__file__).resolve().parent / "hems-contract.json"
 
 
 def load_bundled_contract(path: Path | None = None) -> HemsContract:
