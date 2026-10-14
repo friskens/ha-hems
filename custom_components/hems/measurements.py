@@ -1,7 +1,8 @@
 """Normalize existing HA observations; no device polling or invented zeroes."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
+from typing import Mapping
 
 from .const import PHASE_CURRENT_ENTITY_KEYS
 
@@ -36,9 +37,15 @@ def normalize(observation, now, kind, max_age=120, invert=False):
     return -value if invert else value
 
 
-def collect(options, observe, now):
-    """Grid: +import. Battery: +charge. Solar: nonnegative DC production."""
-    sample, invalid = {}, []
+def collect_with_sources(options, observe, now, max_age=300):
+    """Collect valid current observations and their source report times.
+
+    This is deliberately still tied to the existing options keys.  A later
+    contract-driven options flow can supply more inputs, but it must not turn
+    arbitrary contract expressions into executable collection logic.
+    """
+    # Grid: +import. Battery: +charge. Solar: nonnegative DC production.
+    sample, invalid, reported = {}, [], {}
     mapping = {
         "soc": "soc_entity",
         "grid_power": "grid_entity",
@@ -54,7 +61,7 @@ def collect(options, observe, now):
             continue
         # EV SOC freshness belongs to its source integration. Legacy timeout and
         # timestamp options are intentionally ignored, including existing entries.
-        age = None if field == "ev_soc_pct" else 120
+        age = None if field == "ev_soc_pct" else max_age
         obs = observe(entity)
         value = normalize(
             obs,
@@ -67,19 +74,67 @@ def collect(options, observe, now):
             invalid.append(field)
         else:
             sample[field] = value
-    solar = [normalize(observe(entity), now, "power") for entity in options.get("solar_entities", [])]
+            reported[field] = obs.reported_at
+    solar_observations = [observe(entity) for entity in options.get("solar_entities", [])]
+    solar = [normalize(observation, now, "power", max_age) for observation in solar_observations]
     if not solar or any(value is None or value < 0 for value in solar):
         invalid.append("solar_power")
     else:
         sample["solar_power"] = sum(solar)
+        reported["solar_power"] = min(observation.reported_at for observation in solar_observations)
     phase_entities = [options.get(key) for key in PHASE_CURRENT_ENTITY_KEYS]
     if any(phase_entities):
         if not all(phase_entities):
             invalid.append("phase_current_a")
         else:
-            phase_currents = [normalize(observe(entity), now, "current") for entity in phase_entities]
+            phase_observations = [observe(entity) for entity in phase_entities]
+            phase_currents = [normalize(observation, now, "current", max_age) for observation in phase_observations]
             if any(value is None for value in phase_currents):
                 invalid.append("phase_current_a")
             else:
                 sample["phase_current_a"] = [abs(value) for value in phase_currents]
+                reported["phase_current_a"] = min(observation.reported_at for observation in phase_observations)
+    return sample, invalid, reported
+
+
+def collect(options, observe, now):
+    """Return current values for compatibility with existing callers/tests."""
+    sample, invalid, _reported = collect_with_sources(options, observe, now)
     return sample, invalid
+
+
+@dataclass
+class MeasurementCache:
+    """Last valid telemetry values, without invented substitutes.
+
+    Values are retained only after the source supplied a valid measurement.
+    ``payload`` reports source fields which have crossed their contract stale
+    limit, but intentionally keeps transmitting their last real value.
+    """
+
+    values: dict[str, object] = field(default_factory=dict)
+    reported_at: dict[str, float] = field(default_factory=dict)
+
+    def update(self, sample: Mapping[str, object], reported: Mapping[str, float]) -> None:
+        for name, value in sample.items():
+            timestamp = reported.get(name)
+            if timestamp is None:
+                continue
+            # Do not replace a newer valid observation with an old state event.
+            if timestamp >= self.reported_at.get(name, float("-inf")):
+                self.values[name] = value
+                self.reported_at[name] = timestamp
+
+    def missing_required(self, fields: tuple[str, ...]) -> bool:
+        return any(field not in self.values for field in fields)
+
+    def payload(self, now: float, stale_after: Mapping[str, int | None]) -> dict[str, object]:
+        payload = dict(self.values)
+        stale = sorted(
+            name
+            for name, timestamp in self.reported_at.items()
+            if (limit := stale_after.get(name)) is not None and now - timestamp >= limit
+        )
+        if stale:
+            payload["stale"] = stale
+        return payload

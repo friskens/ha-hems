@@ -4,7 +4,7 @@ import types
 
 import pytest
 
-from custom_components.hems.measurements import Observation, collect, normalize
+from custom_components.hems.measurements import MeasurementCache, Observation, collect, collect_with_sources, normalize
 from custom_components.hems.protocol import Decision, ProtocolError, due, endpoint, parse_response
 
 
@@ -226,6 +226,40 @@ def test_collect_never_substitutes_zero_and_sums_solar():
     assert "solar_power" not in collect(options, states.get, 130)[0]
 
 
+def test_last_valid_measurement_is_sent_and_marked_stale_after_contract_limit():
+    states = {
+        "soc": Observation(50, "%", 100),
+        "grid": Observation(1, "kW", 100),
+        "battery": Observation(500, "W", 100),
+        "pv": Observation(2, "kW", 100),
+    }
+    options = {
+        "soc_entity": "soc",
+        "grid_entity": "grid",
+        "battery_entity": "battery",
+        "solar_entities": ["pv"],
+    }
+    cache = MeasurementCache()
+    sample, _invalid, reported = collect_with_sources(options, states.get, 110)
+    cache.update(sample, reported)
+    # The source is now older than 300 s.  It remains a real value, never 0,
+    # and the request identifies its contract field as stale.
+    sample, _invalid, reported = collect_with_sources(options, states.get, 401)
+    cache.update(sample, reported)
+    payload = cache.payload(401, {name: 300 for name in cache.values})
+    assert payload["soc"] == 50
+    assert payload["grid_power"] == 1000
+    assert payload["stale"] == ["battery_power", "grid_power", "soc", "solar_power"]
+
+
+def test_required_measurement_only_blocks_until_a_real_value_has_been_seen():
+    cache = MeasurementCache()
+    assert cache.missing_required(("soc",))
+    cache.update({"soc": 45}, {"soc": 100})
+    assert not cache.missing_required(("soc",))
+    assert cache.payload(401, {"soc": 300}) == {"soc": 45, "stale": ["soc"]}
+
+
 def test_phase_current_requires_three_fresh_sensors_and_uses_magnitudes():
     states = {
         "l1": Observation(-12, "A", 100),
@@ -252,6 +286,17 @@ def test_phase_current_partial_mapping_or_out_of_range_is_omitted():
     )
     assert "phase_current_a" not in sample
     assert "phase_current_a" in invalid
+
+
+def test_cached_phase_group_stays_all_or_none_when_sources_go_stale():
+    cache = MeasurementCache()
+    cache.update({"phase_current_a": [1, 2, 3]}, {"phase_current_a": 100})
+    # A partial new phase reading must not replace the last complete group.
+    cache.update({}, {})
+    assert cache.payload(401, {"phase_current_a": 300}) == {
+        "phase_current_a": [1, 2, 3],
+        "stale": ["phase_current_a"],
+    }
     sample, invalid = collect(
         {
             "phase_l1_current_entity": "l1",

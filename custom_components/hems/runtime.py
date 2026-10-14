@@ -7,8 +7,9 @@ from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
-from .const import DEFAULT_INTERVAL, DOMAIN, REQUIRED_FIELDS
-from .measurements import Observation, collect
+from .const import DEFAULT_INTERVAL, DOMAIN
+from .contract import ContractError, ContractStore, load_bundled_contract
+from .measurements import MeasurementCache, Observation, collect_with_sources
 from .protocol import ProtocolError, due
 from .transport import AuthError, Client, TransportError
 
@@ -17,12 +18,23 @@ class Runtime:
     def __init__(self, hass, entry, session):
         self.hass, self.entry = hass, entry
         self.options = entry.options
-        self.client = Client(session, entry.data["endpoint"], entry.data["api_key"])
+        # A contract is HEMS-owned data.  It controls the accepted telemetry
+        # names, but never provides executable local rules.
+        self.contract_store = ContractStore()
+        try:
+            self.contract_store = ContractStore(load_bundled_contract())
+        except ContractError:
+            # Surface this through normal diagnostics instead of falling back
+            # to an unchecked request shape.
+            pass
+        self.contract = self.contract_store.current
+        self.client = Client(session, entry.data["endpoint"], entry.data["api_key"], self.contract)
         self.store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
         self.telemetry_enabled = True
         self.decision = None
         self.status, self.error = "starting", None
         self.measurements, self.invalid = {}, []
+        self.measurement_cache = MeasurementCache()
         self.previous = {}
         self.last_attempt = self.last_success = 0
         self.interval = DEFAULT_INTERVAL
@@ -83,10 +95,29 @@ class Runtime:
 
     async def tick(self):
         now = time.time()
+        if self.contract is None:
+            await self.fail("contract_unavailable")
+            self.publish()
+            return
         if self.telemetry_enabled and now - self.last_success >= 180:
             await self.fail("communication_timeout")
-        self.measurements, self.invalid = collect(self.options, self.observe, now)
-        required_missing = any(field not in self.measurements for field in REQUIRED_FIELDS)
+        current, self.invalid, reported = collect_with_sources(self.options, self.observe, now)
+        self.measurement_cache.update(current, reported)
+        required_fields = tuple(
+            input_.field
+            for input_ in self.contract.inputs.values()
+            if input_.required and input_.definition.get("client_status") != "not_sent"
+        )
+        stale_after = {
+            input_.field: input_.stale_after_s
+            for input_ in self.contract.inputs.values()
+            if input_.definition.get("client_status") != "not_sent"
+        }
+        self.measurements = self.measurement_cache.payload(now, stale_after)
+        # A previously valid required value remains usable (and eventually
+        # appears in ``stale``).  Only a required value never observed since
+        # startup prevents the exchange.
+        required_missing = self.measurement_cache.missing_required(required_fields)
         if required_missing:
             await self.fail("measurements_unavailable")
         elif self.telemetry_enabled and due(

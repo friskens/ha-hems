@@ -138,6 +138,10 @@ def changed(current, previous):
     if current.keys() != previous.keys():
         return True
     for key, value in current.items():
+        # Stale is a diagnostic marker.  A transition to stale must not turn
+        # an otherwise stable sample into an unsafe numeric comparison.
+        if key == "stale":
+            continue
         if key == "phase_current_a":
             if any(abs(current_a - previous_a) >= 1 for current_a, previous_a in zip(value, previous[key])):
                 return True
