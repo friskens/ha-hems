@@ -1,7 +1,7 @@
 """Public integration constants."""
 
 DOMAIN = "hems"
-VERSION = "0.1.0a11"
+VERSION = "0.2.0a1"
 PLATFORMS = ["sensor", "binary_sensor", "switch"]
 # Known decision states for translations only. They are not a list of commands
 # this integration can execute; HEMS Client never actuates equipment.
