@@ -90,6 +90,7 @@ class HemsSensor(HemsEntity, SensorEntity):
                 "error": r.error,
                 "telemetry_enabled": r.telemetry_enabled,
                 "invalid_fields": r.invalid,
+                "stale_fields": r.measurements.get("stale", []),
                 "telemetry_interval_seconds": r.interval,
             }
         return None

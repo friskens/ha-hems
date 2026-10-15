@@ -64,6 +64,24 @@ def test_invalid_configuration_is_structural_not_freshness_based():
     assert invalid_configured_inputs(contract, options, states.get) == {"grid_power"}
 
 
+def test_legacy_options_do_not_raise_repairs_after_upgrade():
+    """a9 selections remain valid until Options next saves their new names."""
+    contract = load_bundled_contract()
+    options = {
+        "soc_entity": "sensor.soc",
+        "grid_entity": "sensor.grid",
+        "battery_entity": "sensor.battery",
+        "solar_entities": ["sensor.pv"],
+    }
+    states = {
+        "sensor.soc": SelectedState("sensor.soc", "sensor", "battery", "%"),
+        "sensor.grid": SelectedState("sensor.grid", "sensor", "power", "W"),
+        "sensor.battery": SelectedState("sensor.battery", "sensor", "power", "W"),
+        "sensor.pv": SelectedState("sensor.pv", "sensor", "power", "W"),
+    }
+    assert not invalid_configured_inputs(contract, options, states.get)
+
+
 def test_contract_options_collect_without_executing_contract_expressions():
     contract = load_bundled_contract()
     options = {
@@ -83,3 +101,24 @@ def test_contract_options_collect_without_executing_contract_expressions():
     sample, invalid = collect_contract(options, observations.get, 110, contract)
     assert sample == {"soc": 50, "grid_power": -2000, "battery_power": 500, "solar_power": 1250}
     assert not invalid
+
+
+def test_contract_omits_negative_ev_power():
+    contract = load_bundled_contract()
+    options = {
+        option_key("battery_soc"): "sensor.soc",
+        option_key("grid_power"): "sensor.grid",
+        option_key("battery_power"): "sensor.battery",
+        option_key("solar_sources"): ["sensor.pv"],
+        option_key("ev_power"): "sensor.ev_power",
+    }
+    observations = {
+        "sensor.soc": Observation(50, "%", 100),
+        "sensor.grid": Observation(2, "kW", 100),
+        "sensor.battery": Observation(500, "W", 100),
+        "sensor.pv": Observation(1, "kW", 100),
+        "sensor.ev_power": Observation(-2, "kW", 100),
+    }
+    sample, invalid = collect_contract(options, observations.get, 110, contract)
+    assert "ev_power_w" not in sample
+    assert "ev_power_w" in invalid

@@ -78,8 +78,15 @@ def defaults_for_contract(contract: HemsContract, existing: Mapping[str, Any]) -
 
 
 def selected_entities(input_spec: ContractInput, options: Mapping[str, Any]) -> tuple[str, ...]:
-    """Return well-formed persisted entity IDs, without looking them up."""
-    selected = options.get(option_key(input_spec.key))
+    """Return well-formed current or legacy entity IDs, without lookup.
+
+    Existing installations retain their a9 selection until the user next saves
+    Options.  Validation must see the same fallback as the collector; otherwise
+    a working upgraded entry raises misleading Repairs on every exchange.
+    """
+    selected = options.get(
+        option_key(input_spec.key), options.get(LEGACY_ENTITY_KEYS.get(input_spec.key, ""))
+    )
     values = selected if input_spec.multiple else (selected,)
     if not isinstance(values, (tuple, list)):
         return ()

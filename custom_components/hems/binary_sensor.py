@@ -16,7 +16,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class MeasurementsReady(HemsEntity, BinarySensorEntity):
     @property
     def is_on(self):
-        return all(key in self.runtime.measurements for key in REQUIRED_FIELDS)
+        stale = set(self.runtime.measurements.get("stale", ()))
+        return all(key in self.runtime.measurements and key not in stale for key in REQUIRED_FIELDS)
 
 
 class DecisionFresh(HemsEntity, BinarySensorEntity):

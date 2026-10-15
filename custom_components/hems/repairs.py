@@ -40,7 +40,9 @@ async def async_set_input_issues(
             hass,
             DOMAIN,
             issue_id(entry_id, key),
-            is_fixable=True,
+            # The description directs the user to Options.  There is no
+            # RepairsFlow, so claiming a fix action would lead to a dead end.
+            is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
             translation_key="telemetry_input_invalid",
             translation_placeholders={"input": key},

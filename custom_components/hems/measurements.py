@@ -182,7 +182,7 @@ def collect_contract_with_sources(options, observe, now, contract):
         if any(value is None for value in values):
             invalid.append(input_spec.field)
             continue
-        if input_spec.field == "solar_power" and any(value < 0 for value in values):
+        if input_spec.field in {"solar_power", "ev_power_w"} and any(value < 0 for value in values):
             invalid.append(input_spec.field)
             continue
         if input_spec.group:

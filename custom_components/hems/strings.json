@@ -6,6 +6,15 @@
         "title": "Connect to HEMS",
         "description": "Enter your provider's HTTPS base address or complete endpoint. A base address automatically uses /battery. HEMS Client reads the selected measurements and publishes HEMS decisions; your automations control equipment.",
         "data": {
+          "name": "Name",
+          "endpoint": "HTTPS endpoint",
+          "api_key": "API key"
+        }
+      },
+      "measurements": {
+        "title": "Measurement sources",
+        "description": "Positive grid power means import; positive battery power means charging. PV must include direct battery charging. Select non-overlapping PV sources.\n\nNote: HEMS does not check the age of the EV state of charge. Ensure the source integration keeps it current and marks it unavailable when it cannot be used.",
+        "data": {
           "telemetry_battery_soc": "Battery SOC",
           "telemetry_grid_power": "Grid power",
           "telemetry_battery_power": "Battery power",
@@ -16,27 +25,7 @@
           "telemetry_grid_meter_current_l2": "Grid meter current L2 (optional)",
           "telemetry_grid_meter_current_l3": "Grid meter current L3 (optional)",
           "telemetry_grid_power_invert": "Invert grid power sign",
-          "telemetry_battery_power_invert": "Invert battery power sign",
-          "name": "Name",
-          "endpoint": "HTTPS endpoint",
-          "api_key": "API key"
-        }
-      },
-      "measurements": {
-        "title": "Measurement sources",
-        "description": "Positive grid power means import; positive battery power means charging. PV must include direct battery charging. Select non-overlapping PV sources.\n\nNote: HEMS does not check the age of the EV state of charge. Ensure the source integration keeps it current and marks it unavailable when it cannot be used.",
-        "data": {
-          "soc_entity": "Battery SOC",
-          "grid_entity": "Grid power",
-          "battery_entity": "Battery power",
-          "solar_entities": "PV production sources",
-          "ev_power_entity": "EV charging power (optional)",
-          "ev_soc_entity": "EV SOC (optional)",
-          "phase_l1_current_entity": "Grid meter current L1 (optional)",
-          "phase_l2_current_entity": "Grid meter current L2 (optional)",
-          "phase_l3_current_entity": "Grid meter current L3 (optional)",
-          "invert_grid_power": "Invert grid power sign",
-          "invert_battery_power": "Invert battery power sign"
+          "telemetry_battery_power_invert": "Invert battery power sign"
         }
       },
       "reauth_confirm": {
@@ -49,9 +38,7 @@
     "error": {
       "invalid_endpoint": "Use an HTTPS base address or endpoint without credentials, query parameters or fragment.",
       "invalid_key": "Enter an API key.",
-      "invalid_measurements": "Select every required source and every member of a selected input group.",
-      "missing_solar": "Select at least one PV production source.",
-      "incomplete_phase_current": "Select all three phase-current sensors, or leave all of them empty."
+      "invalid_measurements": "Select every required source and every member of a selected input group."
     },
     "abort": {
       "already_configured": "This endpoint is already configured.",

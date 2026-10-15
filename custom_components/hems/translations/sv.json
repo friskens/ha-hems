@@ -6,6 +6,15 @@
         "title": "Anslut till HEMS",
         "description": "Ange leverantörens HTTPS-basadress eller fullständiga endpoint. En basadress får automatiskt /battery. HEMS Client läser valda mätvärden och visar HEMS-beslut; dina automationer styr utrustningen.",
         "data": {
+          "name": "Namn",
+          "endpoint": "HTTPS-adress",
+          "api_key": "API-nyckel"
+        }
+      },
+      "measurements": {
+        "title": "Mätkällor",
+        "description": "Positiv näteffekt betyder import; positiv batterieffekt betyder laddning. Solproduktionen ska inkludera direkt batteriladdning. Välj solsensorer som inte överlappar.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
+        "data": {
           "telemetry_battery_soc": "Batteriets laddnivå",
           "telemetry_grid_power": "Näteffekt",
           "telemetry_battery_power": "Batterieffekt",
@@ -16,27 +25,7 @@
           "telemetry_grid_meter_current_l2": "Nätmätarens fasström L2 (valfritt)",
           "telemetry_grid_meter_current_l3": "Nätmätarens fasström L3 (valfritt)",
           "telemetry_grid_power_invert": "Vänd tecknet för näteffekt",
-          "telemetry_battery_power_invert": "Vänd tecknet för batterieffekt",
-          "name": "Namn",
-          "endpoint": "HTTPS-adress",
-          "api_key": "API-nyckel"
-        }
-      },
-      "measurements": {
-        "title": "Mätkällor",
-        "description": "Positiv näteffekt betyder import; positiv batterieffekt betyder laddning. Solproduktionen ska inkludera direkt batteriladdning. Välj solsensorer som inte överlappar.\n\nObservera: HEMS kontrollerar inte åldern på bilens laddnivå. Se till att källintegrationen håller värdet aktuellt och markerar det som otillgängligt när det inte kan användas.",
-        "data": {
-          "soc_entity": "Batteriets laddnivå",
-          "grid_entity": "Näteffekt",
-          "battery_entity": "Batterieffekt",
-          "solar_entities": "Sensorer för solproduktion",
-          "ev_power_entity": "Bilens laddeffekt (valfritt)",
-          "ev_soc_entity": "Bilens laddnivå (valfritt)",
-          "phase_l1_current_entity": "Nätmätarens fasström L1 (valfritt)",
-          "phase_l2_current_entity": "Nätmätarens fasström L2 (valfritt)",
-          "phase_l3_current_entity": "Nätmätarens fasström L3 (valfritt)",
-          "invert_grid_power": "Vänd tecknet för näteffekt",
-          "invert_battery_power": "Vänd tecknet för batterieffekt"
+          "telemetry_battery_power_invert": "Vänd tecknet för batterieffekt"
         }
       },
       "reauth_confirm": {
@@ -49,9 +38,7 @@
     "error": {
       "invalid_endpoint": "Ange en HTTPS-basadress eller endpoint utan inloggningsuppgifter, frågeparametrar eller fragment.",
       "invalid_key": "Ange en API-nyckel.",
-      "invalid_measurements": "Välj alla obligatoriska källor och alla delar i en vald ingångsgrupp.",
-      "missing_solar": "Välj minst en sensor för solproduktion.",
-      "incomplete_phase_current": "Välj alla tre fasströmssensorer, eller lämna alla tomma."
+      "invalid_measurements": "Välj alla obligatoriska källor och alla delar i en vald ingångsgrupp."
     },
     "abort": {
       "already_configured": "Den här adressen är redan konfigurerad.",
