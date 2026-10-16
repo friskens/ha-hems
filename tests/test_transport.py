@@ -1,6 +1,7 @@
 import json
 import pytest
 
+from custom_components.hems.contract import load_bundled_contract
 from custom_components.hems.protocol import ProtocolError
 from custom_components.hems.transport import AuthError, Client, TransportError
 
@@ -43,6 +44,24 @@ async def test_header_only_no_redirect_or_heartbeat():
     assert session.kwargs["json"]["heartbeat"] is False
     assert session.kwargs["json"]["ev_soc_pct"] == 80
     assert session.kwargs["json"]["phase_current_a"] == [1, 2, 3]
+
+
+async def test_contract_allowlist_sends_known_telemetry_and_stale_only():
+    session = Session()
+    await Client(session, "https://example.com/battery", "test-secret", load_bundled_contract()).exchange(
+        {
+            "soc": 50,
+            "grid_power": 1200,
+            "load_power_w": 3000,  # Contract explicitly says not_sent.
+            "unknown_future_field": 7,
+            "stale": ["soc"],
+        },
+        lambda: 100,
+    )
+    assert session.kwargs["json"]["soc"] == 50
+    assert session.kwargs["json"]["stale"] == ["soc"]
+    assert "load_power_w" not in session.kwargs["json"]
+    assert "unknown_future_field" not in session.kwargs["json"]
 
 
 @pytest.mark.parametrize(

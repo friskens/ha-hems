@@ -137,6 +137,68 @@ Implemented in a9:
 
 The response is unchanged. There is no acknowledgement of the values beyond status 200.
 
+## 7. A generic engine driven by the contract file
+
+`contract/hems-contract.json` describes the same exchange as PROTOCOL.md in a form an engine can
+read: `inputs` (which Home Assistant sensors feed which request field, with unit, device class,
+freshness and whether a repair issue is due when one is missing), `rules` (local transformations
+only: units, sign, summing PV sources, phase magnitude) and `outputs` (which entities to create from
+the response, with Swedish and English names, stable unique IDs and the meaning of each action).
+The service side keeps the file in step with the deployed service through pull requests, as with
+PROTOCOL.md. Unknown entries in the file should be ignored, so a newer file never stops an older
+client. `action`, `power_kw` and `command_interval_seconds` are marked `core`; all other response
+fields are lenient (a malformed value drops that field, never the battery decision).
+
+**Actuation by the user's own automation.** With the adapter scripts gone, suggest one automation
+per installation:
+
+1. Trigger: a change of the decision entity. Condition: the decision is fresh.
+2. One `choose` branch per action, and a default branch that the user chooses for actions they have
+   not built.
+3. `mode: restart`, so a new decision cancels an unfinished sequence and two sequences never write
+   to the equipment at the same time. Nine separate automations would not give this.
+4. Act on changes only; no time-pattern triggers.
+5. Blueprints per inverter brand with the same branches, so a user only picks entities in the
+   automation editor.
+
+The meaning of each action and of its power target is in `outputs.decision.action_meaning`. Two
+that matter most: for `selfconsumption` the target is a discharge ceiling (0 blocks discharge); for
+`peakshaving` the battery covers the whole house load so that grid import stays at zero — a fixed
+import limit above zero does not meet it.
+
+**Command-followed check.** A local, informational sensor, for example
+`sensor.hems_command_followed`, with the states `following`, `not_following` and `cannot_tell`,
+and the attributes `reason`, `action` and `since`. It never blocks, retries or rewrites anything,
+so no integration's own safeguards are bypassed, and it is not sent to the service. Allow about
+180 seconds after each new decision. Report `cannot_tell` when the decision is not fresh, a required
+measurement is stale, the battery is full for a charging action or empty for a discharging action,
+or PV is below about 200 W for `chargesolar`. Suggested `not_following` conditions, with W after the
+rules (grid import positive, battery charge positive) and `target` = `power_kw` × 1000:
+
+| Action | Not following if |
+| --- | --- |
+| charge | battery < 0.5 × target and SOC < 98 % |
+| chargesolar | battery < −100; or grid < −200 and battery < 100 and SOC < 98 %; or grid > 200 and battery > 100 |
+| selfconsumption | −battery > target + 300 |
+| pause | battery < −100 |
+| sellsolar | \|battery\| > 200 |
+| export | −grid < 0.5 × target (SOC above 10 %) |
+| peakshaving | grid > 300 and battery > −100 (SOC above 10 %) |
+| zeroexport | grid < −200 |
+| observe | never |
+
+The thresholds are suggestions. After 15 minutes of `not_following` in a row, a repair issue such as
+"Your automation for chargesolar does not seem to produce the expected result" tells the user to
+look at the automation; it clears when the check follows again.
+
+**Stale measurements — do not block the exchange.** Several integrations report slowly when they
+retry (a Modbus integration can go 49 seconds or more between values after a timeout), so a 120-second
+gate stops the whole exchange for hours. The service does not need that gate. Send the last known
+value in every exchange, and list a field in the optional request field `stale` (request field names)
+once its source has not reported for 300 seconds — the same rule as the other client. The service
+already accepts this field. Skip an exchange only when a required input has had no value at all since
+start. A missing value is still never sent as 0.
+
 ---
 
 When a change on the service side affects the client, a pull request against `docs/PROTOCOL.md`

@@ -9,10 +9,13 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "version": VERSION,
         "execution": runtime.status,
         "error": runtime.error,
-        "requested": runtime.recovery.requested,
-        "failed_effective_command": runtime.recovery.failed,
+        "telemetry_enabled": runtime.telemetry_enabled,
         "invalid_fields": runtime.invalid,
         "decision_action": runtime.decision.action if runtime.decision else None,
         "last_success": runtime.last_success,
-        "configured_fields": sorted(key for key in runtime.options if key.endswith("_entity")),
+        "configured_fields": sorted(
+            key.removeprefix("telemetry_")
+            for key in runtime.options
+            if key.startswith("telemetry_") and not key.endswith("_invert")
+        ),
     }

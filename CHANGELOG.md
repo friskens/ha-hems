@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.2.0a1
+
+> **Breaking change:** HEMS Client no longer runs adapter scripts or controls
+> equipment. Before upgrading an installation that used adapter control, create
+> and test one Home Assistant automation that reacts to the HEMS decision
+> sensor. Use a `choose` branch per action and `mode: restart` so a later
+> decision cancels an earlier sequence.
+
+- Make the co-maintainer-owned `contract/hems-contract.json` the source for
+  generated protocol documentation. CI rejects a generated `PROTOCOL.md` or
+  packaged contract that differs from the authoritative contract.
+- Configure existing telemetry entities from the contract, validate their
+  structure locally and raise Repairs for missing or incompatible selections.
+- Send last valid telemetry values while marking fields stale after the
+  contract-defined limit. A required field prevents an exchange only until it
+  has supplied one valid value since startup.
+- Expose decisions and informational load/charger entities without actuating
+  any device. Stable HEMS `uid`/`id` values keep entities stable across name
+  changes; temporarily absent outputs are not deleted.
+- Add an informational command-followed foundation. It never writes, retries
+  or reports execution back to HEMS.
+
+## 0.1.0a11
+
+- Add `contract/hems-contract.json`, a machine-readable form of the protocol:
+  inputs, local rules and outputs with entity names and the meaning of each
+  action. Add proposal 7 on a generic engine, user automations and a
+  command-followed check. Documentation only; no client code changes.
+
 ## 0.1.0a10
 
 - Document `enabled: false` on deferrable `loads[]` entries: the customer has

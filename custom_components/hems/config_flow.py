@@ -7,49 +7,48 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import COMMANDS, DOMAIN, PHASE_CURRENT_ENTITY_KEYS
+from .const import DOMAIN
+from .contract import load_bundled_contract
 from .protocol import ProtocolError, endpoint
+from .telemetry_config import (
+    defaults_for_contract,
+    is_selectable,
+    option_flag_key,
+    option_key,
+    selection_errors,
+)
 
 
-def measurement_schema(defaults):
+def measurement_schema(contract, defaults):
+    """Build selectors from validated contract inputs, never rule expressions.
+
+    Home Assistant's entity selector supports domain and device class filters.
+    Units remain a runtime/configuration validation because the selector API has
+    no unit filter; a wrong saved source produces a Repair, not a stale-data
+    warning.
+    """
     schema = {}
-    for key in (
-        "soc_entity",
-        "grid_entity",
-        "battery_entity",
-        "ev_power_entity",
-        "ev_soc_entity",
-        *PHASE_CURRENT_ENTITY_KEYS,
-    ):
-        required = key in ("soc_entity", "grid_entity", "battery_entity")
-        marker = vol.Required if required else vol.Optional
-        field = marker(key, default=defaults[key]) if defaults.get(key) else marker(key)
-        schema[field] = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
-    schema[vol.Required("solar_entities", default=defaults.get("solar_entities", []))] = (
-        selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", multiple=True))
-    )
-    for key in ("invert_grid_power", "invert_battery_power"):
-        schema[vol.Optional(key, default=defaults.get(key, False))] = bool
+    for input_spec in contract.inputs.values():
+        if not is_selectable(input_spec):
+            continue
+        key = option_key(input_spec.key)
+        marker = vol.Required if input_spec.required else vol.Optional
+        default = defaults.get(key, [] if input_spec.multiple else None)
+        field = marker(key, default=default) if default is not None else marker(key)
+        selector_config = {"domain": input_spec.domain, "multiple": input_spec.multiple}
+        if input_spec.device_class:
+            selector_config["device_class"] = input_spec.device_class
+        schema[field] = selector.EntitySelector(selector.EntitySelectorConfig(**selector_config))
+        for option in input_spec.options:
+            flag = option_flag_key(input_spec.key, option)
+            schema[vol.Optional(flag, default=defaults.get(flag, False))] = bool
     return vol.Schema(schema)
 
 
-def phase_current_configuration_complete(data):
-    """Require all three optional phase sensors when any is selected."""
-    configured = [bool(data.get(key)) for key in PHASE_CURRENT_ENTITY_KEYS]
-    return not any(configured) or all(configured)
+def measurement_errors(contract, data):
+    """Return one translated form error for a malformed selection shape."""
+    return {"base": "invalid_measurements"} if selection_errors(contract, data) else {}
 
-
-def adapter_schema(defaults):
-    schema = {}
-    for key in ("apply_script",):
-        marker = vol.Optional(key, default=defaults[key]) if defaults.get(key) else vol.Optional(key)
-        schema[marker] = selector.EntitySelector(selector.EntitySelectorConfig(domain="script"))
-    schema[vol.Optional("commands", default=defaults.get("commands", []))] = selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=[v for v in COMMANDS if v != "observe"], multiple=True, translation_key="commands"
-        )
-    )
-    return vol.Schema(schema)
 
 
 class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -85,20 +84,16 @@ class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_measurements(self, user_input=None):
-        if user_input is not None and user_input.get("solar_entities") and phase_current_configuration_complete(user_input):
+        contract = load_bundled_contract()
+        if user_input is not None and not measurement_errors(contract, user_input):
             return self.async_create_entry(
                 title=self.connection["name"], data=self.connection, options=user_input
             )
         return self.async_show_form(
             step_id="measurements",
-            data_schema=measurement_schema({}),
-            errors={
-                "base": "missing_solar" if not user_input.get("solar_entities") else "incomplete_phase_current"
-            }
-            if user_input is not None
-            else {},
+            data_schema=measurement_schema(contract, defaults_for_contract(contract, {})),
+            errors=measurement_errors(contract, user_input) if user_input is not None else {},
         )
-
     async def async_step_reauth(self, entry_data):
         return await self.async_step_reauth_confirm()
 
@@ -115,7 +110,6 @@ class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
         )
-
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
@@ -124,31 +118,16 @@ class HemsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class HemsOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
-        if user_input is not None and user_input.get("solar_entities") and phase_current_configuration_complete(user_input):
-            self.pending = user_input
-            return await self.async_step_adapter()
+        contract = load_bundled_contract()
+        if user_input is not None and not measurement_errors(contract, user_input):
+            # Saving migrates legacy a9 names to contract-derived keys.  The
+            # client only reads selected sources and publishes HEMS decisions.
+            return self.async_create_entry(title="", data=user_input)
         return self.async_show_form(
             step_id="init",
-            data_schema=measurement_schema(self.config_entry.options),
-            errors={
-                "base": "missing_solar" if not user_input.get("solar_entities") else "incomplete_phase_current"
-            }
-            if user_input is not None
-            else {},
+            data_schema=measurement_schema(contract, defaults_for_contract(contract, self.config_entry.options)),
+            errors=measurement_errors(contract, user_input) if user_input is not None else {},
         )
 
-    async def async_step_adapter(self, user_input=None):
-        errors = {}
-        if user_input is not None:
-            selected = (
-                bool(user_input.get("apply_script"))
-                or bool(user_input.get("commands"))
-            )
-            complete = all(user_input.get(k) for k in ("apply_script", "commands"))
-            if selected and not complete:
-                errors["base"] = "incomplete_adapter"
-            else:
-                return self.async_create_entry(title="", data={**self.pending, **user_input})
-        return self.async_show_form(
-            step_id="adapter", data_schema=adapter_schema(self.config_entry.options), errors=errors
-        )
+    # This flow deliberately has no adapter/options step: local automations
+    # consume the exposed decision and are solely responsible for execution.
