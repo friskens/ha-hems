@@ -1,0 +1,522 @@
+{
+  "contract": "hems-battery-exchange",
+  "contract_version": 1,
+  "describes": "Machine-readable form of docs/PROTOCOL.md: the data exchanged with POST /battery and how HEMS Client maps it to Home Assistant entities. Interface only. Rules are local data transformations in the client; they never describe how the service decides.",
+  "exchange": {
+    "method": "POST",
+    "path": "/battery",
+    "auth_header": "X-Api-Key",
+    "owner": "engine",
+    "cadence": {
+      "every_s": 20,
+      "also_at_quarter_hour": true,
+      "min_spacing_s": 20,
+      "backoff_after_failure_s": 60
+    },
+    "unknown_response_fields": "ignore",
+    "max_response_bytes": 65536
+  },
+  "inputs": {
+    "battery_soc": {
+      "field": "soc",
+      "required": true,
+      "domain": "sensor",
+      "device_class": "battery",
+      "unit": "%",
+      "repair_if_missing": true,
+      "stale_after_s": 300
+    },
+    "grid_power": {
+      "field": "grid_power",
+      "required": true,
+      "domain": "sensor",
+      "device_class": "power",
+      "units": [
+        "W",
+        "kW"
+      ],
+      "repair_if_missing": true,
+      "options": [
+        "invert"
+      ],
+      "stale_after_s": 300
+    },
+    "battery_power": {
+      "field": "battery_power",
+      "required": true,
+      "domain": "sensor",
+      "device_class": "power",
+      "units": [
+        "W",
+        "kW"
+      ],
+      "repair_if_missing": true,
+      "options": [
+        "invert"
+      ],
+      "stale_after_s": 300
+    },
+    "solar_sources": {
+      "field": "solar_power",
+      "required": true,
+      "multiple": true,
+      "domain": "sensor",
+      "device_class": "power",
+      "units": [
+        "W",
+        "kW"
+      ],
+      "repair_if_missing": true,
+      "stale_after_s": 300
+    },
+    "ev_power": {
+      "field": "ev_power_w",
+      "required": false,
+      "domain": "sensor",
+      "device_class": "power",
+      "units": [
+        "W",
+        "kW"
+      ],
+      "stale_after_s": 300
+    },
+    "ev_soc": {
+      "field": "ev_soc_pct",
+      "required": false,
+      "domain": "sensor",
+      "device_class": "battery",
+      "unit": "%",
+      "stale_after_s": null
+    },
+    "grid_meter_current_l1": {
+      "field": "phase_current_a",
+      "index": 0,
+      "required": false,
+      "group": "phase_current",
+      "domain": "sensor",
+      "device_class": "current",
+      "units": [
+        "A",
+        "mA"
+      ],
+      "label_hint": "Grid meter at the connection point, not inverter output current",
+      "stale_after_s": 300
+    },
+    "grid_meter_current_l2": {
+      "field": "phase_current_a",
+      "index": 1,
+      "required": false,
+      "group": "phase_current",
+      "domain": "sensor",
+      "device_class": "current",
+      "units": [
+        "A",
+        "mA"
+      ],
+      "stale_after_s": 300
+    },
+    "grid_meter_current_l3": {
+      "field": "phase_current_a",
+      "index": 2,
+      "required": false,
+      "group": "phase_current",
+      "domain": "sensor",
+      "device_class": "current",
+      "units": [
+        "A",
+        "mA"
+      ],
+      "stale_after_s": 300
+    },
+    "load_power": {
+      "field": "load_power_w",
+      "keyed_by": "loads[].id where kind = deferrable",
+      "required": false,
+      "per_output_entry": true,
+      "domain": "sensor",
+      "device_class": "power",
+      "units": [
+        "W",
+        "kW"
+      ],
+      "client_status": "not_sent",
+      "stale_after_s": 300
+    }
+  },
+  "rules": {
+    "to_watts": {
+      "applies_to": [
+        "grid_power",
+        "battery_power",
+        "solar_sources",
+        "ev_power",
+        "load_power"
+      ],
+      "expression": "value * 1000 if unit == 'kW' else value"
+    },
+    "to_amps": {
+      "applies_to": [
+        "grid_meter_current_l1",
+        "grid_meter_current_l2",
+        "grid_meter_current_l3"
+      ],
+      "expression": "value / 1000 if unit == 'mA' else value"
+    },
+    "invert": {
+      "applies_to": [
+        "grid_power",
+        "battery_power"
+      ],
+      "expression": "-value if option.invert else value",
+      "result_sign": {
+        "grid_power": "import positive",
+        "battery_power": "charge positive"
+      }
+    },
+    "sum_solar": {
+      "applies_to": [
+        "solar_sources"
+      ],
+      "expression": "sum(values)",
+      "all_sources_required": true
+    },
+    "phase_magnitude": {
+      "applies_to": [
+        "grid_meter_current_l1",
+        "grid_meter_current_l2",
+        "grid_meter_current_l3"
+      ],
+      "expression": "abs(value)",
+      "round": 1
+    },
+    "phase_group": {
+      "group": "phase_current",
+      "send_as": "[L1, L2, L3]",
+      "all_or_none": true,
+      "range": [
+        0,
+        250
+      ]
+    },
+    "constants": {
+      "heartbeat": false,
+      "app_version": "ha-hems/<version>"
+    },
+    "mark_stale": {
+      "field": "stale",
+      "after_s": 300,
+      "expression": "names of the request fields whose source has not reported for after_s",
+      "send_last_known_value": true,
+      "never_blocks_exchange": true,
+      "skip_exchange_only_if": "a required input has had no value since start"
+    },
+    "never_fabricate_zero": {
+      "applies_to": "all inputs",
+      "expression": "a missing or invalid measurement is omitted, never sent as 0"
+    }
+  },
+  "outputs": {
+    "decision": {
+      "entity": "sensor",
+      "state_from": "action",
+      "values": [
+        "charge",
+        "chargesolar",
+        "selfconsumption",
+        "sellsolar",
+        "pause",
+        "export",
+        "peakshaving",
+        "zeroexport",
+        "observe"
+      ],
+      "core": true,
+      "on_invalid": "reject_response",
+      "attributes": {
+        "power_kw": {
+          "type": "number",
+          "min": 0,
+          "core": true,
+          "required_for": [
+            "charge",
+            "chargesolar",
+            "export",
+            "peakshaving",
+            "selfconsumption"
+          ],
+          "default_otherwise": 0,
+          "on_invalid": "reject_response",
+          "note": "For selfconsumption: maximum battery discharge, 0 blocks discharge."
+        },
+        "power_w": {
+          "from": "power_kw",
+          "expression": "power_kw * 1000",
+          "local": true
+        },
+        "command_interval_seconds": {
+          "type": "integer",
+          "min": 1,
+          "core": true,
+          "on_invalid": "reject_response"
+        },
+        "power": {
+          "type": "number",
+          "presentation_only": true,
+          "on_invalid": "reject_response"
+        },
+        "power_unit": {
+          "type": "enum",
+          "values": [
+            "w",
+            "kw"
+          ],
+          "on_invalid": "reject_response"
+        },
+        "soc": {
+          "type": "number",
+          "min": 0,
+          "max": 100,
+          "informational": true,
+          "on_invalid": "reject_response"
+        },
+        "received_at": {
+          "local": true,
+          "required": true
+        },
+        "fresh": {
+          "local": true,
+          "required": true,
+          "expression": "now - received_at < 90",
+          "note": "Automations must not act on a decision that is not fresh."
+        }
+      },
+      "names": {
+        "sv": "HEMS beslut",
+        "en": "HEMS decision"
+      },
+      "unique_id": "decision",
+      "icon": "mdi:battery-sync",
+      "extra_entities": {
+        "power_target": {
+          "from": "attributes.power_w",
+          "entity": "sensor",
+          "names": {
+            "sv": "HEMS effektmål",
+            "en": "HEMS power target"
+          },
+          "unique_id": "power_target",
+          "device_class": "power",
+          "unit": "W",
+          "state_class": "measurement"
+        },
+        "decision_fresh": {
+          "from": "attributes.fresh",
+          "entity": "binary_sensor",
+          "names": {
+            "sv": "HEMS beslut färskt",
+            "en": "HEMS decision fresh"
+          },
+          "unique_id": "decision_fresh"
+        },
+        "command_interval": {
+          "from": "attributes.command_interval_seconds",
+          "entity": "sensor",
+          "names": {
+            "sv": "HEMS kommandointervall",
+            "en": "HEMS command interval"
+          },
+          "unique_id": "command_interval",
+          "device_class": "duration",
+          "unit": "s",
+          "entity_category": "diagnostic"
+        }
+      },
+      "action_meaning": {
+        "charge": {
+          "en": "Charge the battery at the power target; solar allowed; no discharge.",
+          "power": "charge power"
+        },
+        "chargesolar": {
+          "en": "Charge from solar only, up to the power target; no discharge.",
+          "power": "maximum solar charge power"
+        },
+        "selfconsumption": {
+          "en": "Normal self-consumption; the power target is the maximum battery discharge.",
+          "power": "discharge ceiling, 0 blocks discharge"
+        },
+        "pause": {
+          "en": "No discharge; surplus solar may charge the battery.",
+          "power": "not used"
+        },
+        "sellsolar": {
+          "en": "Export solar; the battery neither charges nor discharges.",
+          "power": "not used"
+        },
+        "export": {
+          "en": "Controlled net export to the grid at the power target.",
+          "power": "net export power"
+        },
+        "peakshaving": {
+          "en": "The battery covers the whole house load so that grid import stays at zero. A fixed import limit above zero does not meet this.",
+          "power": "expected discharge power; following it, or holding grid import at zero, are both valid"
+        },
+        "zeroexport": {
+          "en": "No export to the grid.",
+          "power": "not used"
+        },
+        "observe": {
+          "en": "Do nothing; leave the equipment as it is.",
+          "power": "not used"
+        }
+      }
+    },
+    "loads": {
+      "entity": "attribute_of_decision",
+      "recorder": false,
+      "from": "loads",
+      "null_means": "no list supplied",
+      "empty_means": "no entries, not switch everything off",
+      "on_invalid": "reject_response",
+      "entry": {
+        "id": {
+          "type": "string",
+          "non_empty": true,
+          "unique_in_list": true,
+          "required": true,
+          "on_invalid": "reject_response"
+        },
+        "action": {
+          "type": "string",
+          "non_empty": true,
+          "required": true,
+          "values_by_kind": {
+            "ev": [
+              "charge",
+              "stop"
+            ],
+            "deferrable": [
+              "on",
+              "off"
+            ]
+          },
+          "on_invalid": "reject_response"
+        },
+        "kind": {
+          "type": "enum",
+          "values": [
+            "ev",
+            "deferrable"
+          ],
+          "on_invalid": "omit_field"
+        },
+        "name": {
+          "type": "string",
+          "on_invalid": "omit_field"
+        },
+        "reason": {
+          "type": "string",
+          "display_only": true,
+          "never_parse": true,
+          "on_invalid": "omit_field"
+        },
+        "power_kw": {
+          "type": "number",
+          "min": 0,
+          "on_invalid": "reject_response"
+        },
+        "power_w": {
+          "type": "number",
+          "min": 0,
+          "on_invalid": "omit_field"
+        },
+        "current_a": {
+          "type": "number",
+          "min": 0,
+          "kind": "ev",
+          "on_invalid": "reject_response"
+        },
+        "target_pct": {
+          "type": "number",
+          "min": 0,
+          "max": 100,
+          "kind": "ev",
+          "on_invalid": "reject_response"
+        },
+        "uid": {
+          "type": "string",
+          "kind": "ev",
+          "stable": true,
+          "on_invalid": "omit_field"
+        },
+        "reports_power": {
+          "type": "boolean",
+          "kind": "deferrable",
+          "on_invalid": "omit_field"
+        },
+        "enabled": {
+          "type": "boolean",
+          "kind": "deferrable",
+          "meaning_of_false": "customer turned off the service's control of this load",
+          "on_invalid": "omit_field"
+        }
+      },
+      "entity_per_entry": {
+        "entity": "sensor",
+        "state_from": "action",
+        "unique_id": "load_{uid or id}",
+        "names": {
+          "sv": "{name}",
+          "en": "{name}"
+        },
+        "fallback_names": {
+          "sv": "HEMS last {id}",
+          "en": "HEMS load {id}"
+        },
+        "attributes_from_entry": [
+          "kind",
+          "power_w",
+          "current_a",
+          "target_pct",
+          "reason",
+          "enabled",
+          "reports_power"
+        ],
+        "remove_when_absent": "after the entry has been missing from {n} consecutive responses (client decides n)",
+        "note": "name is the customer's own label from the service; uid (chargers) or id (deferrable loads) keeps the entity stable when the name changes."
+      }
+    },
+    "ev_chargers": {
+      "entity": "attribute_of_decision",
+      "from": "ev_chargers",
+      "informational": true,
+      "on_invalid": "omit_field",
+      "entry": {
+        "id": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "phases": {
+          "type": "integer",
+          "min": 1,
+          "max": 3
+        }
+      }
+    },
+    "connection": {
+      "entity": "sensor",
+      "local": true,
+      "expression": "connected if exchange_age < 150 else warning if exchange_age < 600 else disconnected",
+      "names": {
+        "sv": "HEMS anslutning",
+        "en": "HEMS connection"
+      },
+      "unique_id": "connection",
+      "entity_category": "diagnostic"
+    }
+  }
+}

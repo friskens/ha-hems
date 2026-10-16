@@ -6,6 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INTEGRATION = ROOT / "custom_components" / "hems"
+AUTHORITATIVE_CONTRACT = ROOT / "contract" / "hems-contract.json"
+PACKAGED_CONTRACT = INTEGRATION / "hems-contract.json"
 
 
 def leaves(value, prefix=()):
@@ -47,6 +49,11 @@ def check():
     assert set(base["entity"]["sensor"]["decision"]["state"]) == set(values["COMMANDS"])
     assert (ROOT / "LICENSE").is_file()
     assert (INTEGRATION / "__init__.py").is_file()
+    assert AUTHORITATIVE_CONTRACT.is_file(), "Authoritative HEMS contract is missing"
+    assert PACKAGED_CONTRACT.is_file(), "HACS-packaged HEMS contract is missing"
+    assert (
+        PACKAGED_CONTRACT.read_bytes() == AUTHORITATIVE_CONTRACT.read_bytes()
+    ), "Packaged HEMS contract differs from contract/hems-contract.json"
     print(f"Packaging and en/sv translations validated for {manifest['version']} ({len(flat)} strings).")
 
 

@@ -1,75 +1,516 @@
-# Protocol and measurement contract
+<!-- GENERATED FILE — do not edit directly. Source: contract/hems-contract.json; run python scripts/generate_protocol.py -->
 
-This implementation follows the HEMS contract supplied during development. It is not a universal energy-management protocol; confirm compatibility with your provider.
+# HEMS protocol
 
-## Request
+**Contract:** `hems-battery-exchange`
+**Contract version:** `1`
 
-HTTPS POST to the configured endpoint, with certificate validation and redirects disabled. Authentication: `X-Api-Key`. JSON contains numeric `soc` (%), `grid_power`, `solar_power`, `battery_power` (all W), optional `ev_power_w` and `ev_soc_pct`, `heartbeat: false`, and `app_version`. The service also accepts an optional `ev_power_by_uid` object (`{"<uid>": watts}`, nonnegative W per charger `uid`) for installations with more than one charger; this alpha does not send it.
+Machine-readable form of docs/PROTOCOL.md: the data exchanged with POST /battery and how HEMS Client maps it to Home Assistant entities. Interface only. Rules are local data transformations in the client; they never describe how the service decides.
 
-The service also accepts an optional `load_power_w` object in the same request: `{"<load id>": watts}`, keyed by the `id` of a `loads[]` entry with `kind: "deferrable"`. Values are nonnegative W in the range 0–50 000, at most 10 entries. `0` is a real measurement (the load draws nothing); omit the key or send `null` when no measurement is available. A list or a scalar instead of an object, a negative value, a value above 50 000, more than 10 entries or a non-numeric value rejects the whole request with status 422, including the battery telemetry in it. Keys that do not match one of the account's loads are ignored. The value is used only for loads whose entry carries `reports_power: true`, and only for the exchange it arrives in: the service does not carry a load measurement over to the next exchange. Charger power is never sent here; it belongs in `ev_power_w` or `ev_power_by_uid`. This alpha does not send `load_power_w`.
+## Source of truth
 
-The service also accepts an optional `phase_current_a` list in the same request: the current on each phase at the main fuse, `[L1, L2, L3]`, in A. It must be exactly three finite numbers, each a magnitude in the range 0–250 (import and export give the same value; send the absolute value if the meter reports a sign); one decimal is sufficient. The source is the grid meter's per-phase current at the connection point, not the inverter's own output current. Omit the whole field when any phase is missing or stale; a phase that is not measured is never sent as `0`. Unlike `load_power_w`, a malformed value (not a list of three numbers, a boolean, a negative value or a value above 250) does not reject the request: the field is treated as unknown and the rest of the telemetry applies. An omitted field means the phase currents are unknown for that exchange, so a client that reports them sends them in every exchange. The request carries no timestamp for these values; freshness is checked by the client. The main fuse rating is not sent; the service uses the rating in the customer's HEMS settings. In a9, the client sends this field when all three optional phase-current sensors are configured and valid.
+This document is generated from `contract/hems-contract.json`. Change the JSON contract, run the generator, and commit both files. CI rejects a stale generated document.
 
-No key is sent in the body. Missing measurements are not fabricated as zero. If required data is stale, the client stops submitting measurements and reports the local observation error. Optional stale EV fields are omitted.
+## Exchange
 
-The client sends only validated measurements and does not use `heartbeat: true`. Measurement freshness is checked locally before submission.
+| Property | Value |
+| --- | --- |
+| Method | `POST` |
+| Path | `/battery` |
+| Auth header | `X-Api-Key` |
+| Owner | `engine` |
+| Unknown response fields | `ignore` |
+| Max response bytes | `65536` |
 
-## Cadence
+### Cadence
 
-The client checks HA's existing state cache every five seconds; it does not poll inverter registers. Healthy telemetry exchanges are scheduled every 20 seconds, additionally at quarter-hour boundaries. Measurement changes of at least 200 W or 1 percentage point SOC also qualify, with a 20-second minimum spacing; quarter boundaries bypass it. Failed exchanges back off for 60 seconds, so failure backoff can postpone a quarter-boundary request. `command_interval_seconds` is validated and exposed as response metadata; it does not change the telemetry interval.
+- **Every s:** `20`
+- **Also at quarter hour:** `true`
+- **Min spacing s:** `20`
+- **Backoff after failure s:** `60`
 
-A received effective command is passed once to the configured adapter after validation. Repeated commands refresh communication without rewriting device settings. Adapter retries, hardware fallback and device policy are outside this protocol. The cadence above describes this client's current implementation, not a requirement for how the service schedules decisions.
+## Request inputs
 
-Connection display: successful exchange age under 150 s = connected, 150–600 s = warning, 600 s or more = disconnected. These are local exchange ages, not a query of backend connection state. Failed communication or invalid input is reported locally; it does not trigger a hardware fallback command.
+### `battery_soc`
 
-## Response
+- **Field:** `soc`
+- **Required:** `true`
+- **Domain:** `sensor`
+- **Device class:** `battery`
+- **Unit:** `%`
+- **Repair if missing:** `true`
+- **Stale after s:** `300`
 
-```json
-{
-  "action": "export",
-  "power_kw": 2.5,
-  "power": -2500,
-  "power_unit": "w",
-  "command_interval_seconds": 110,
-  "loads": []
-}
-```
+### `grid_power`
 
-`power_kw` is finite, numeric and nonnegative, required for charge/chargesolar/export/peakshaving/selfconsumption. For non-target actions it may be omitted and defaults to zero. `power` is presentation only and may have a user-selected sign. Accepted units are lowercase `w` or `kw`. Boolean values are not numeric. An optional `soc` response is validated but is never written as a battery limit.
+- **Field:** `grid_power`
+- **Required:** `true`
+- **Domain:** `sensor`
+- **Device class:** `power`
+#### Units
 
-Known actions: charge, chargesolar, selfconsumption, sellsolar, pause, export, peakshaving, zeroexport, observe. Unknown actions, including `unchanged`, are rejected. The adapter capability list is separate from this protocol list.
+`W`, `kW`
+- **Repair if missing:** `true`
+#### Options
 
-For selfconsumption, `power_kw` is the maximum battery discharge contribution, not a forced output. The client passes the action and ceiling unchanged to the adapter (converted to W), independently of EV telemetry. An explicit zero blocks discharge; an omitted ceiling is rejected. Device-specific execution belongs in adapter scripts.
+`invert`
+- **Stale after s:** `300`
 
-The Decision sensor exposes `command_supported` and `supported_commands`. During active control an unsupported action reports the local error `unsupported_adapter_command` without changing hardware; it is not repeatedly attempted. Telemetry continues when measurements are valid. This is local feedback only: the request currently contains no execution acknowledgement for the service.
+### `battery_power`
 
-Each `loads[]` entry carries `id` (string, unique within the list), `kind` (`"ev"` or `"deferrable"`), `name` (string, for display), `action`, `power_kw`, `power_w` (the same value in W) and `reason` (free text for display and logs; never parse it). For `kind: "ev"` the action is `charge` or `stop`, with `current_a`, `target_pct` and the optional `uid` described below. For `kind: "deferrable"` the action is `on` or `off`; `power_kw`/`power_w` is the load's configured rated power, and `reports_power` (boolean) says whether the service uses a measured `load_power_w` value for this load. A deferrable load has no `uid`; its `id` is a 32-character hexadecimal string assigned when the load was created and is the key to use in `load_power_w`. Additional informational fields may appear in an entry and must be ignored.
+- **Field:** `battery_power`
+- **Required:** `true`
+- **Domain:** `sensor`
+- **Device class:** `power`
+#### Units
 
-A `kind: "deferrable"` entry may carry `enabled: false`. It means that the customer has turned off the service's control of that load on the HEMS pages. The entry stays in the list with `action: "off"`: that `off` is the stop when control is turned off, and while `enabled` is false the service sends no `on` of its own for the load. The exception is a run that the customer starts manually from the HEMS pages: while it runs, the entry carries `action: "on"` as usual. Only `false` has a meaning; a missing field (or `true`) means that control is on. `load_power_w` is still accepted for the load while control is off, so a client that reports the load's power keeps sending it. A load that the customer deletes disappears from the list as before. This alpha ignores `enabled`; it is not part of the Decision sensor's load entries.
+`W`, `kW`
+- **Repair if missing:** `true`
+#### Options
 
-The Decision sensor exposes `loads` as an ordered list of validated entries in
-the same shape, field names and numeric types as `loads[]` above. A field that
-the service omits is omitted from the corresponding sensor entry; unknown
-response fields are ignored. Malformed informational fields (`kind`, `name`,
-`reason`, `uid`, `power_w` or `reports_power`) are omitted rather than rejecting
-the battery decision. This replaces the earlier ID/action mapping, so local
-automations must iterate the list and select the entry they need by `id` or
-`uid`. The `loads` attribute is excluded from Recorder history; it remains
-available as the sensor's current attribute.
-Missing/null loads mean no list was supplied; an empty list is not interpreted
-as an instruction to switch everything off. No load output is actuated and
-`load_power_w` is not sent.
+`invert`
+- **Stale after s:** `300`
 
-Charger loads may carry an optional `uid`: a string that identifies the charger. It is assigned by the service, stays the same for as long as the charger exists and is never reused for another charger. `id` (for example `ev_1`) is still present and remains the charger's position. The response may also contain an optional `ev_chargers` list with one object per charger: `id`, `uid`, `name` and `phases`. Both are informational for this client: unknown response fields and unknown fields in a load are ignored.
+### `solar_sources`
 
-The service can run a charger check started by the customer on the HEMS pages. It uses the ordinary exchange: while the check runs, the `loads[]` entry of that charger carries a sequence of `current_a` values, a `stop` and a `charge`, and the battery decision may change as usual. No new fields are involved. A client that actuates loads must apply a new current or a stop within 3 minutes and resume charging within 6 minutes after a restart, with telemetry at least every 60 seconds. This alpha does not actuate loads, so the check cannot pass with it.
+- **Field:** `solar_power`
+- **Required:** `true`
+- **Multiple:** `true`
+- **Domain:** `sensor`
+- **Device class:** `power`
+#### Units
 
-## Freshness
+`W`, `kW`
+- **Repair if missing:** `true`
+- **Stale after s:** `300`
 
-Required sensor values must be numeric, use recognised units and have a `last_reported` age below 120 seconds. `unknown`/`unavailable`, nonfinite values, future timestamps and invalid SOC are rejected. The integration reads current observations, not a latch whose timestamp is renewed by reuse.
+### `ev_power`
 
-A fresh PV reading of 0 W is valid at night. An unavailable PV source is not converted to zero: verify the source integration's nighttime behavior before commissioning. Missing optional EV inputs do not stop the required telemetry. Partial required telemetry is not sent without an agreed provider contract for handling missing fields.
+- **Field:** `ev_power_w`
+- **Required:** `false`
+- **Domain:** `sensor`
+- **Device class:** `power`
+#### Units
 
-HA's `last_reported` says when an entity reported, not when a remote device physically sampled. Configure upstream integrations to expose truthful observations. EV SOC has no client-side timeout or timestamp selector. Its source integration owns freshness and must mark unusable values unknown/unavailable; numeric values in 0–100% are accepted regardless of age. Legacy EV timeout/timestamp options are ignored. Required battery/grid/PV measurements retain their age checks. The generic client cannot detect an upstream integration repeatedly publishing cached data as fresh.
+`W`, `kW`
+- **Stale after s:** `300`
 
-Decisions expire after 90 seconds for new writes. A previously verified stable configuration remains in place until replaced by a local adapter or other controller. A saved decision is never replayed after restart; only desired operation is persisted.
+### `ev_soc`
+
+- **Field:** `ev_soc_pct`
+- **Required:** `false`
+- **Domain:** `sensor`
+- **Device class:** `battery`
+- **Unit:** `%`
+- **Stale after s:** `null`
+
+### `grid_meter_current_l1`
+
+- **Field:** `phase_current_a`
+- **Index:** `0`
+- **Required:** `false`
+- **Group:** `phase_current`
+- **Domain:** `sensor`
+- **Device class:** `current`
+#### Units
+
+`A`, `mA`
+- **Label hint:** `Grid meter at the connection point, not inverter output current`
+- **Stale after s:** `300`
+
+### `grid_meter_current_l2`
+
+- **Field:** `phase_current_a`
+- **Index:** `1`
+- **Required:** `false`
+- **Group:** `phase_current`
+- **Domain:** `sensor`
+- **Device class:** `current`
+#### Units
+
+`A`, `mA`
+- **Stale after s:** `300`
+
+### `grid_meter_current_l3`
+
+- **Field:** `phase_current_a`
+- **Index:** `2`
+- **Required:** `false`
+- **Group:** `phase_current`
+- **Domain:** `sensor`
+- **Device class:** `current`
+#### Units
+
+`A`, `mA`
+- **Stale after s:** `300`
+
+### `load_power`
+
+- **Field:** `load_power_w`
+- **Keyed by:** `loads[].id where kind = deferrable`
+- **Required:** `false`
+- **Per output entry:** `true`
+- **Domain:** `sensor`
+- **Device class:** `power`
+#### Units
+
+`W`, `kW`
+- **Client status:** `not_sent`
+- **Stale after s:** `300`
+
+## Local transformation rules
+
+### `to_watts`
+
+#### Applies to
+
+`grid_power`, `battery_power`, `solar_sources`, `ev_power`, `load_power`
+- **Expression:** `value * 1000 if unit == 'kW' else value`
+
+### `to_amps`
+
+#### Applies to
+
+`grid_meter_current_l1`, `grid_meter_current_l2`, `grid_meter_current_l3`
+- **Expression:** `value / 1000 if unit == 'mA' else value`
+
+### `invert`
+
+#### Applies to
+
+`grid_power`, `battery_power`
+- **Expression:** `-value if option.invert else value`
+#### Result sign
+
+- **Grid power:** `import positive`
+- **Battery power:** `charge positive`
+
+### `sum_solar`
+
+#### Applies to
+
+`solar_sources`
+- **Expression:** `sum(values)`
+- **All sources required:** `true`
+
+### `phase_magnitude`
+
+#### Applies to
+
+`grid_meter_current_l1`, `grid_meter_current_l2`, `grid_meter_current_l3`
+- **Expression:** `abs(value)`
+- **Round:** `1`
+
+### `phase_group`
+
+- **Group:** `phase_current`
+- **Send as:** `[L1, L2, L3]`
+- **All or none:** `true`
+#### Range
+
+`0`, `250`
+
+### `constants`
+
+- **Heartbeat:** `false`
+- **App version:** `ha-hems/<version>`
+
+### `mark_stale`
+
+- **Field:** `stale`
+- **After s:** `300`
+- **Expression:** `names of the request fields whose source has not reported for after_s`
+- **Send last known value:** `true`
+- **Never blocks exchange:** `true`
+- **Skip exchange only if:** `a required input has had no value since start`
+
+### `never_fabricate_zero`
+
+- **Applies to:** `all inputs`
+- **Expression:** `a missing or invalid measurement is omitted, never sent as 0`
+
+## Response outputs
+
+### `decision`
+
+- **Entity:** `sensor`
+- **State from:** `action`
+#### Values
+
+`charge`, `chargesolar`, `selfconsumption`, `sellsolar`, `pause`, `export`, `peakshaving`, `zeroexport`, `observe`
+- **Core:** `true`
+- **On invalid:** `reject_response`
+#### Attributes
+
+##### Power kw
+
+- **Type:** `number`
+- **Min:** `0`
+- **Core:** `true`
+###### Required for
+
+`charge`, `chargesolar`, `export`, `peakshaving`, `selfconsumption`
+- **Default otherwise:** `0`
+- **On invalid:** `reject_response`
+- **Note:** `For selfconsumption: maximum battery discharge, 0 blocks discharge.`
+##### Power w
+
+- **From:** `power_kw`
+- **Expression:** `power_kw * 1000`
+- **Local:** `true`
+##### Command interval seconds
+
+- **Type:** `integer`
+- **Min:** `1`
+- **Core:** `true`
+- **On invalid:** `reject_response`
+##### Power
+
+- **Type:** `number`
+- **Presentation only:** `true`
+- **On invalid:** `reject_response`
+##### Power unit
+
+- **Type:** `enum`
+###### Values
+
+`w`, `kw`
+- **On invalid:** `reject_response`
+##### Soc
+
+- **Type:** `number`
+- **Min:** `0`
+- **Max:** `100`
+- **Informational:** `true`
+- **On invalid:** `reject_response`
+##### Received at
+
+- **Local:** `true`
+- **Required:** `true`
+##### Fresh
+
+- **Local:** `true`
+- **Required:** `true`
+- **Expression:** `now - received_at < 90`
+- **Note:** `Automations must not act on a decision that is not fresh.`
+#### Names
+
+- **Sv:** `HEMS beslut`
+- **En:** `HEMS decision`
+- **Unique id:** `decision`
+- **Icon:** `mdi:battery-sync`
+#### Extra entities
+
+##### Power target
+
+- **From:** `attributes.power_w`
+- **Entity:** `sensor`
+###### Names
+
+- **Sv:** `HEMS effektmål`
+- **En:** `HEMS power target`
+- **Unique id:** `power_target`
+- **Device class:** `power`
+- **Unit:** `W`
+- **State class:** `measurement`
+##### Decision fresh
+
+- **From:** `attributes.fresh`
+- **Entity:** `binary_sensor`
+###### Names
+
+- **Sv:** `HEMS beslut färskt`
+- **En:** `HEMS decision fresh`
+- **Unique id:** `decision_fresh`
+##### Command interval
+
+- **From:** `attributes.command_interval_seconds`
+- **Entity:** `sensor`
+###### Names
+
+- **Sv:** `HEMS kommandointervall`
+- **En:** `HEMS command interval`
+- **Unique id:** `command_interval`
+- **Device class:** `duration`
+- **Unit:** `s`
+- **Entity category:** `diagnostic`
+#### Action meaning
+
+##### Charge
+
+- **En:** `Charge the battery at the power target; solar allowed; no discharge.`
+- **Power:** `charge power`
+##### Chargesolar
+
+- **En:** `Charge from solar only, up to the power target; no discharge.`
+- **Power:** `maximum solar charge power`
+##### Selfconsumption
+
+- **En:** `Normal self-consumption; the power target is the maximum battery discharge.`
+- **Power:** `discharge ceiling, 0 blocks discharge`
+##### Pause
+
+- **En:** `No discharge; surplus solar may charge the battery.`
+- **Power:** `not used`
+##### Sellsolar
+
+- **En:** `Export solar; the battery neither charges nor discharges.`
+- **Power:** `not used`
+##### Export
+
+- **En:** `Controlled net export to the grid at the power target.`
+- **Power:** `net export power`
+##### Peakshaving
+
+- **En:** `The battery covers the whole house load so that grid import stays at zero. A fixed import limit above zero does not meet this.`
+- **Power:** `expected discharge power; following it, or holding grid import at zero, are both valid`
+##### Zeroexport
+
+- **En:** `No export to the grid.`
+- **Power:** `not used`
+##### Observe
+
+- **En:** `Do nothing; leave the equipment as it is.`
+- **Power:** `not used`
+
+### `loads`
+
+- **Entity:** `attribute_of_decision`
+- **Recorder:** `false`
+- **From:** `loads`
+- **Null means:** `no list supplied`
+- **Empty means:** `no entries, not switch everything off`
+- **On invalid:** `reject_response`
+#### Entry
+
+##### Id
+
+- **Type:** `string`
+- **Non empty:** `true`
+- **Unique in list:** `true`
+- **Required:** `true`
+- **On invalid:** `reject_response`
+##### Action
+
+- **Type:** `string`
+- **Non empty:** `true`
+- **Required:** `true`
+###### Values by kind
+
+###### Ev
+
+`charge`, `stop`
+###### Deferrable
+
+`on`, `off`
+- **On invalid:** `reject_response`
+##### Kind
+
+- **Type:** `enum`
+###### Values
+
+`ev`, `deferrable`
+- **On invalid:** `omit_field`
+##### Name
+
+- **Type:** `string`
+- **On invalid:** `omit_field`
+##### Reason
+
+- **Type:** `string`
+- **Display only:** `true`
+- **Never parse:** `true`
+- **On invalid:** `omit_field`
+##### Power kw
+
+- **Type:** `number`
+- **Min:** `0`
+- **On invalid:** `reject_response`
+##### Power w
+
+- **Type:** `number`
+- **Min:** `0`
+- **On invalid:** `omit_field`
+##### Current a
+
+- **Type:** `number`
+- **Min:** `0`
+- **Kind:** `ev`
+- **On invalid:** `reject_response`
+##### Target pct
+
+- **Type:** `number`
+- **Min:** `0`
+- **Max:** `100`
+- **Kind:** `ev`
+- **On invalid:** `reject_response`
+##### Uid
+
+- **Type:** `string`
+- **Kind:** `ev`
+- **Stable:** `true`
+- **On invalid:** `omit_field`
+##### Reports power
+
+- **Type:** `boolean`
+- **Kind:** `deferrable`
+- **On invalid:** `omit_field`
+##### Enabled
+
+- **Type:** `boolean`
+- **Kind:** `deferrable`
+- **Meaning of false:** `customer turned off the service's control of this load`
+- **On invalid:** `omit_field`
+#### Entity per entry
+
+- **Entity:** `sensor`
+- **State from:** `action`
+- **Unique id:** `load_{uid or id}`
+##### Names
+
+- **Sv:** `{name}`
+- **En:** `{name}`
+##### Fallback names
+
+- **Sv:** `HEMS last {id}`
+- **En:** `HEMS load {id}`
+##### Attributes from entry
+
+`kind`, `power_w`, `current_a`, `target_pct`, `reason`, `enabled`, `reports_power`
+- **Remove when absent:** `after the entry has been missing from {n} consecutive responses (client decides n)`
+- **Note:** `name is the customer's own label from the service; uid (chargers) or id (deferrable loads) keeps the entity stable when the name changes.`
+
+### `ev_chargers`
+
+- **Entity:** `attribute_of_decision`
+- **From:** `ev_chargers`
+- **Informational:** `true`
+- **On invalid:** `omit_field`
+#### Entry
+
+##### Id
+
+- **Type:** `string`
+##### Uid
+
+- **Type:** `string`
+##### Name
+
+- **Type:** `string`
+##### Phases
+
+- **Type:** `integer`
+- **Min:** `1`
+- **Max:** `3`
+
+### `connection`
+
+- **Entity:** `sensor`
+- **Local:** `true`
+- **Expression:** `connected if exchange_age < 150 else warning if exchange_age < 600 else disconnected`
+#### Names
+
+- **Sv:** `HEMS anslutning`
+- **En:** `HEMS connection`
+- **Unique id:** `connection`
+- **Entity category:** `diagnostic`

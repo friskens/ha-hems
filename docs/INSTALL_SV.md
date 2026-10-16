@@ -1,71 +1,55 @@
-# Installation och första kontroll
+# Installation och migration till 0.2
 
-Aktuell utvecklingsversion skickar giltiga mätvärden var 20:e sekund, oberoende
-av svarets `command_interval_seconds`. Den läser HA:s befintliga tillstånd och
-ökar inte avläsningen av växelriktarregister. Kommandon som adaptern inte stöder
-visas med `command_supported: false` och felet `unsupported_adapter_command`.
-Klienten skickar ingen lokal Auto-återställning. Detta kvitteras ännu inte till
-molntjänsten.
+HEMS Client samlar in valda Home Assistant-mätvärden, skickar dem till HEMS och
+visar HEMS beslut som entiteter. Den styr inte växelriktare, laddare eller andra
+laster. Din egen automation eller template utför den lokala styrningen.
 
-Kontrollera solsensorerna nattetid: färska 0 W fungerar, men `unavailable` är
-inte samma sak som null. Saknade frivilliga värden stoppar inte urladdningen.
-`selfconsumption` och `power_kw` skickas till den lokala adaptern som kommando
-och maximalt urladdningstak, oberoende av EV-laddning. Noll betyder noll
-tillåten urladdning; en saknad gräns avvisas. Val av växelriktarläge och
-lokala optimeringar hör hemma i adapter-skripten. Den lokala adaptern måste
-stödja de angivna kommandona innan denna version aktiveras.
+## Installera
 
-HEMS Client är en fristående klient till HEMS från [PowerGravio](https://powergravio.se). Version 0.1.0a9 är en alfa: mätinsamling och beslutsvisning finns, medan batteristyrning kräver egna HA-skript enligt [adapterkontraktet](ADAPTER.md).
+1. Lägg till `https://github.com/friskens/ha-hems` som anpassat
+   integrationsrepo i HACS och visa förhandsversioner.
+2. Installera en publicerad HEMS Client-release och starta om Home Assistant.
+3. Lägg till **HEMS Client** under Inställningar → Enheter och tjänster.
+4. Ange HEMS HTTPS-basadress eller fullständig endpoint och API-nyckel. En
+   basadress får automatiskt `/battery`; en uttrycklig sökväg behålls.
+5. Välj de befintliga sensorer som klienten frågar efter. Fixa eventuella
+   Repairs för saknad eller inkompatibel sensor.
+6. Bygg en lokal automation som triggar när `sensor.hems_decision` ändras.
+   Lägg till villkor för färskt beslut, en `choose`-gren per action och
+   `mode: restart` så att ett nytt beslut avbryter en tidigare sekvens.
 
-I a9 kan du valfritt välja nätmätarens (smartmeterns) fasström för L1, L2 och
-L3 vid anslutningspunkten – välj inte växelriktarens egna fasströmmar. Alla tre
-krävs; klienten skickar absoluta värden i A när de är färska och giltiga, och
-utelämnar hela fältet annars.
+## Viktigt vid uppgradering från 0.1
 
-I a8 visas ett beslut om laster i kontrollsensorns attribut `loads` som en
-ordnad lista med samma fältnamn som i HEMS-svaret. Det är ett underlag för
-lokala automationer; klienten aktiverar eller begränsar inte en billaddare
-eller annan last.
+> **Brytande ändring:** 0.2.0a1 kör inga adapter-skript och gör inga HA-serviceanrop
+> för att styra utrustning. Bygg och testa din automation innan uppgraderingen
+> om du tidigare använde HEMS Clients adapterstyrning.
 
-> **Brytande ändring för lokala lastautomationer:** `loads` ändras från en
-> `{id: action}`-mappning till en lista. Ersätt exempelvis
-> `state_attr('sensor.hems_decision', 'loads')['ev_1']` med
-> `((state_attr('sensor.hems_decision', 'loads') or []) | selectattr('id',
-> 'eq', 'ev_1') | map(attribute='action') | first | default('none'))`.
+Beslutssensorn visar fortfarande bland annat `action`, `power_kw`, `power_w`,
+`command_interval_seconds`, `loads` och om beslutet är färskt. För
+`selfconsumption` betyder `power_kw` maximalt tillåten urladdning; noll blockerar
+urladdning. Betydelsen för varje action finns i [PROTOCOL.md](PROTOCOL.md).
 
-## Viktigt vid uppgradering från 0.1.0a4
+Laster och billaddare är endast information. Matcha en laddare på dess stabila
+HEMS-`uid`, eller en annan last på `id`. Ett namn från HEMS är endast ett
+visningsnamn och kan ändras utan att entiteten byts. En tillfälligt frånvarande
+utgång raderas inte automatiskt.
 
-- Den automatiska återgången till `Auto` är borttagen. Vid manuellt stopp,
-  HEMS-avbrott eller ett gammalt beslut lämnas utrustningen i sitt senaste läge.
-- Tidigare `auto_script`, `owned` och `restore_pending` ignoreras. Uppgraderingen
-  skriver inte till hårdvaran.
-- Innan du uppgraderar en aktiv styrning ska du lägga till och testa en uttrycklig
-  lokal regel i adaptern eller en HA-automation för den säkra åtgärd just din
-  anläggning ska göra i dessa situationer.
+## Mätvärden och färskhet
 
-1. Lägg till `https://github.com/friskens/ha-hems` som anpassat integrationsrepo i HACS. Visa förhandsversioner om det behövs.
-2. Installera, starta om HA och lägg till **HEMS Client**.
-3. Ange leverantörens HTTPS-basadress eller fullständiga endpoint och API-nyckel. En basadress får automatiskt `/battery`; en uttrycklig sökväg behålls. Nyckeln skickas endast i `X-Api-Key`.
-4. Välj sensorer för batteriets SOC, nätets effekt, batteriets effekt och en eller flera solproduktionssensorer. Nätimport och batteriladdning ska vara positiva; tecknen kan vändas i inställningarna.
-5. Låt styrskriptet vara av medan mätningar och beslut kontrolleras. Ange därefter ett skript för kommando och verifiering samt vilka kommandon just din lokala adapter faktiskt stödjer. HEMS Client innehåller ingen Fronius-, Modbus- eller annan växelriktardrivrutin.
+Nätimport är positiv och batteriladdning positiv. Välj icke-överlappande
+solproduktionssensorer och inkludera PV som laddar batteriet direkt. Tre
+fasströmmar måste väljas tillsammans från nätmätaren vid anslutningspunkten,
+inte växelriktarens egna fasströmmar.
 
-Solproduktionen ska inkludera direkt laddning av batteriet. Dvs AC effekt på Växelriktaren är inte intressant utan t.ex PV Effekt eller MPPT effekt. Bilens SOC kan skickas även om laddaren inte styrs. För eventuella växelriktare med enbart PV och inget batteri kan såklart AC effekt användas.
+Ett långsamt källsystem stoppar inte utbytet direkt. Klienten skickar senast
+giltiga värde och markerar fältet som `stale` efter kontraktets tidsgräns.
+Saknade värden uppfinns aldrig som noll. Ett Repair gäller felaktigt eller
+saknat sensorval, inte en vanlig tillfällig försening.
 
-Integrationen ändrar aldrig SOC-gränser. Behåll batteritillverkarens och din installationens inställningar lokalt. Styrningen ändrar inte befintliga YAML-automationer det här måste du programmera själv i yaml. (Eller låta en AI skriva ihop några script åt dig)
+## Följsamhet
 
-Kontrollsensorn visar önskad drift. Vid tillfälliga fel visar klienten adapter- eller verifieringsfelet men ändrar inte hårdvarans läge. Lokal adapterpolicy äger eventuell retry eller återgång till Auto. Ett manuellt stopp gäller tills du själv slår på igen.
-
-När styrningen stoppas, kontakten med HEMS saknas eller ett beslut blir för
-gammalt ändrar HEMS Client inte utrustningen. Vill du att anläggningen ska
-återgå till ett särskilt läge, avbryta styrningen eller försöka igen, lägger du
-en uttrycklig regel för det i din lokala adapter eller automation.
-
-Konfigurationsflödet kontrollerades manuellt i den tidigare alfan 0.1.0a3 på HA
-2026.9.3, med testposten lämnad inaktiverad. [Konfigurationsbilderna](SCREENSHOTS.md)
-är därför en historisk UI-referens, inte ett nytt drifttest av denna version.
-Automatiska tester körs med simulerade HA-tjänster. Ursprungliga installationens
-erfarenheter finns i [Lessons learned](LESSONS_LEARNED.md).
-
-Gränssnittet finns på svenska och engelska och följer språkvalet i Home Assistant. Det omfattar inställningar, entitetsnamn, driftlägen, status och felmeddelanden.
-
-Observera: HEMS kontrollerar inte åldern på bilens laddnivå. Källintegrationen ansvarar för aktuella värden och ska markera oanvändbara värden som otillgängliga. Ingen timeout eller tidssensor för bilens SOC konfigureras här.
+HEMS följsamhet är en mjuk informationssignal: följer, följer inte, väntar eller
+kan inte avgöra. Den använder lokala mätningar efter ett nytt beslut men skriver
+aldrig, försöker aldrig igen och skickas inte tillbaka till HEMS. När en action
+är ny väntar den först; ett färskt HEMS-svar och en separat lokal observation
+krävs innan den kan säga något säkert.

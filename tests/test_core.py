@@ -4,10 +4,8 @@ import types
 
 import pytest
 
-from custom_components.hems.adapter import VerificationError, validate_receipt
-from custom_components.hems.measurements import Observation, collect, normalize
+from custom_components.hems.measurements import MeasurementCache, Observation, collect, collect_with_sources, normalize
 from custom_components.hems.protocol import Decision, ProtocolError, due, endpoint, parse_response
-from custom_components.hems.recovery import Recovery
 
 
 @pytest.mark.parametrize("value", [None, True, "1", -1, float("nan"), float("inf")])
@@ -31,7 +29,8 @@ def test_interval(value, expected):
 @pytest.mark.parametrize(
     "payload",
     [
-        {"action": "unchanged"},
+        {"action": ""},
+        {"action": None},
         {"action": "pause", "command_interval_seconds": 0},
         {"action": "pause", "power_unit": "kW"},
         {"action": "pause", "soc": 101},
@@ -50,6 +49,12 @@ def test_load_absence_is_not_off():
     assert parse_response({"action": "pause"}, 100).loads is None
     assert parse_response({"action": "pause", "loads": None}, 100).loads is None
     assert parse_response({"action": "pause", "loads": []}, 100).loads == ()
+
+
+def test_unknown_future_action_is_visible_but_has_no_power_target():
+    decision = parse_response({"action": "future_action"}, 100)
+    assert decision.action == "future_action"
+    assert decision.effective == ("future_action", 0.0)
 
 
 def test_loads_preserve_the_contract_fields_for_local_automations():
@@ -146,8 +151,6 @@ def test_decision_sensor_exposes_list_or_none_for_loads(monkeypatch):
     runtime = types.SimpleNamespace(
         entry=types.SimpleNamespace(entry_id="test", title="Test"),
         decision=parse_response({"action": "pause", "loads": [{"id": "ev_1", "action": "charge"}]}, 100),
-        command_supported=True,
-        adapter=types.SimpleNamespace(commands=set()),
     )
     sensor = HemsSensor(runtime, "decision")
     assert sensor.extra_state_attributes["loads"] == [{"id": "ev_1", "action": "charge"}]
@@ -220,7 +223,43 @@ def test_collect_never_substitutes_zero_and_sums_solar():
     assert sample == {"soc": 50, "grid_power": -2000, "battery_power": 1000, "solar_power": 2500}
     assert invalid == ["ev_soc_pct"]
     states["pv2"] = Observation(500, "W", 0)
-    assert "solar_power" not in collect(options, states.get, 130)[0]
+    # A slow upstream report remains usable until the contract's 300-second
+    # stale boundary; runtime then keeps the last valid value and marks it.
+    assert "solar_power" not in collect(options, states.get, 401)[0]
+
+
+def test_last_valid_measurement_is_sent_and_marked_stale_after_contract_limit():
+    states = {
+        "soc": Observation(50, "%", 100),
+        "grid": Observation(1, "kW", 100),
+        "battery": Observation(500, "W", 100),
+        "pv": Observation(2, "kW", 100),
+    }
+    options = {
+        "soc_entity": "soc",
+        "grid_entity": "grid",
+        "battery_entity": "battery",
+        "solar_entities": ["pv"],
+    }
+    cache = MeasurementCache()
+    sample, _invalid, reported = collect_with_sources(options, states.get, 110)
+    cache.update(sample, reported)
+    # The source is now older than 300 s.  It remains a real value, never 0,
+    # and the request identifies its contract field as stale.
+    sample, _invalid, reported = collect_with_sources(options, states.get, 401)
+    cache.update(sample, reported)
+    payload = cache.payload(401, {name: 300 for name in cache.values})
+    assert payload["soc"] == 50
+    assert payload["grid_power"] == 1000
+    assert payload["stale"] == ["battery_power", "grid_power", "soc", "solar_power"]
+
+
+def test_required_measurement_only_blocks_until_a_real_value_has_been_seen():
+    cache = MeasurementCache()
+    assert cache.missing_required(("soc",))
+    cache.update({"soc": 45}, {"soc": 100})
+    assert not cache.missing_required(("soc",))
+    assert cache.payload(401, {"soc": 300}) == {"soc": 45, "stale": ["soc"]}
 
 
 def test_phase_current_requires_three_fresh_sensors_and_uses_magnitudes():
@@ -238,11 +277,9 @@ def test_phase_current_requires_three_fresh_sensors_and_uses_magnitudes():
     assert sample["phase_current_a"] == [12, 1.5, 0]
     assert "phase_current_a" not in invalid
     states["l3"] = Observation(1, "A", 0)
-    sample, invalid = collect(options, states.get, 130)
+    sample, invalid = collect(options, states.get, 401)
     assert "phase_current_a" not in sample
     assert "phase_current_a" in invalid
-
-
 def test_phase_current_partial_mapping_or_out_of_range_is_omitted():
     sample, invalid = collect(
         {"phase_l1_current_entity": "l1"},
@@ -251,6 +288,17 @@ def test_phase_current_partial_mapping_or_out_of_range_is_omitted():
     )
     assert "phase_current_a" not in sample
     assert "phase_current_a" in invalid
+
+
+def test_cached_phase_group_stays_all_or_none_when_sources_go_stale():
+    cache = MeasurementCache()
+    cache.update({"phase_current_a": [1, 2, 3]}, {"phase_current_a": 100})
+    # A partial new phase reading must not replace the last complete group.
+    cache.update({}, {})
+    assert cache.payload(401, {"phase_current_a": 300}) == {
+        "phase_current_a": [1, 2, 3],
+        "stale": ["phase_current_a"],
+    }
     sample, invalid = collect(
         {
             "phase_l1_current_entity": "l1",
@@ -269,48 +317,3 @@ def test_phase_current_does_not_break_measurement_change_detection():
     assert not due(1010, 1000, 1000, 110, previous, previous)
     assert not due(1020, 1000, 1000, 110, {"phase_current_a": [10.9, 10, 10]}, previous)
     assert due(1020, 1000, 1000, 110, {"phase_current_a": [11, 10, 10]}, previous)
-
-
-def test_recovery_tracks_requested_and_failed_effective_command():
-    recovery = Recovery()
-    recovery.request(True, 100)
-    assert recovery.requested
-    recovery.failed = ("pause", 0)
-    assert recovery.failed == ("pause", 0)
-    recovery.request(False, 460)
-    assert not recovery.requested
-    assert recovery.failed is None
-
-
-def test_new_control_request_clears_adapter_outcomes():
-    recovery = Recovery()
-    recovery.verified = ("pause", 0)
-    recovery.failed = ("export", 1000)
-    recovery.failed_status = "adapter_failed"
-    recovery.failed_error = "adapter_failed"
-    recovery.request(True, 100)
-    assert recovery.verified is None
-    assert recovery.failed is None
-    assert recovery.failed_status is None
-    assert recovery.failed_error is None
-
-
-def test_receipt_is_bound_to_request_and_fresh_readback():
-    receipt = {
-        "verified": True,
-        "token": "nonce",
-        "command": "pause",
-        "power_w": 0,
-        "readback_at": 105,
-        "readback": {"mode": 3},
-    }
-    validate_receipt(receipt, "pause", 0, "nonce", 100, 110)
-    for changes in (
-        {"token": "old"},
-        {"readback_at": 99},
-        {"readback": {}},
-        {"verified": False},
-        {"power_w": 1000},
-    ):
-        with pytest.raises(VerificationError):
-            validate_receipt({**receipt, **changes}, "pause", 0, "nonce", 100, 110)

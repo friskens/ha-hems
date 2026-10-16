@@ -18,18 +18,32 @@ class AuthError(TransportError):
 
 
 class Client:
-    def __init__(self, session, url, key):
+    def __init__(self, session, url, key, contract=None):
         self.session = session
         self.url = endpoint(url)
         self._key = key
+        # The contract describes which telemetry names may cross this boundary.
+        # It is data, not code: no contract expression is evaluated here.
+        if contract is None:
+            self._allowed_fields = frozenset(
+                {"soc", "grid_power", "solar_power", "battery_power", "ev_power_w", "ev_soc_pct", "phase_current_a"}
+            )
+        else:
+            self._allowed_fields = frozenset(
+                input_.field
+                for input_ in contract.inputs.values()
+                if input_.definition.get("client_status") != "not_sent"
+            )
 
     async def exchange(self, measurements, now):
-        # Fixed allowlist prevents callers from reintroducing credentials in body.
-        allowed = {
-            "soc", "grid_power", "solar_power", "battery_power", "ev_power_w", "ev_soc_pct",
-            "phase_current_a",
+        # The allowlist prevents callers from reintroducing credentials or
+        # accidental HA state into the request. ``stale`` is a fixed protocol
+        # marker, never an arbitrary field provided by the contract.
+        payload = {
+            key: value
+            for key, value in measurements.items()
+            if key in self._allowed_fields or key == "stale"
         }
-        payload = {k: v for k, v in measurements.items() if k in allowed}
         payload.update(heartbeat=False, app_version=f"ha-hems/{VERSION}")
         try:
             async with asyncio.timeout(15):
