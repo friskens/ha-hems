@@ -34,6 +34,7 @@ class Client:
                 for input_ in contract.inputs.values()
                 if input_.definition.get("client_status") != "not_sent"
             )
+        self.contract = contract
 
     async def exchange(self, measurements, now):
         # The allowlist prevents callers from reintroducing credentials or
@@ -66,6 +67,6 @@ class Client:
                         data = json.loads(raw)
                     except (ValueError, UnicodeError) as err:
                         raise ProtocolError("invalid_json") from err
-                    return parse_response(data, now())
+                    return parse_response(data, now(), self.contract)
         except (aiohttp.ClientError, TimeoutError) as err:
             raise TransportError("connection_failed") from err

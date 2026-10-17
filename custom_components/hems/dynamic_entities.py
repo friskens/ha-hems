@@ -68,9 +68,10 @@ class HemsOutputSensor(HemsEntity, SensorEntity):
 
     _attr_translation_key = "output"
 
-    def __init__(self, runtime, tracker: OutputTracker, entry: dict[str, Any]):
+    def __init__(self, runtime, tracker: OutputTracker, entry: dict[str, Any], attributes: tuple[str, ...]):
         self._tracker = tracker
         self._output_id = stable_hems_id(entry)
+        self._attributes = attributes
         super().__init__(runtime, f"load_{self._output_id}")
         self._attr_translation_placeholders = {"id": self._output_id}
 
@@ -102,18 +103,7 @@ class HemsOutputSensor(HemsEntity, SensorEntity):
             "present": True,
             **{
                 key: entry[key]
-                for key in (
-                    "id",
-                    "uid",
-                    "kind",
-                    "power_w",
-                    "power_kw",
-                    "current_a",
-                    "target_pct",
-                    "reason",
-                    "enabled",
-                    "reports_power",
-                )
+                for key in self._attributes
                 if key in entry
             },
         }

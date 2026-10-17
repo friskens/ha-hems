@@ -147,12 +147,17 @@ def test_decision_sensor_exposes_list_or_none_for_loads(monkeypatch):
     entity_module.Entity = type("Entity", (), {})
     sys.modules.pop("custom_components.hems.entity", None)
     sys.modules.pop("custom_components.hems.sensor", None)
-    HemsSensor = importlib.import_module("custom_components.hems.sensor").HemsSensor
+    sensor_module_import = importlib.import_module("custom_components.hems.sensor")
+    OutputSpec = importlib.import_module("custom_components.hems.output_presentation").OutputSpec
     runtime = types.SimpleNamespace(
         entry=types.SimpleNamespace(entry_id="test", title="Test"),
+        contract=None,
         decision=parse_response({"action": "pause", "loads": [{"id": "ev_1", "action": "charge"}]}, 100),
     )
-    sensor = HemsSensor(runtime, "decision")
+    sensor = sensor_module_import.ContractOutputSensor(
+        runtime,
+        OutputSpec("decision", "sensor", "decision", "action", {"names": {"en": "Decision"}}),
+    )
     assert sensor.extra_state_attributes["loads"] == [{"id": "ev_1", "action": "charge"}]
     runtime.decision = parse_response({"action": "pause"}, 100)
     assert sensor.extra_state_attributes["loads"] is None
