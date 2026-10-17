@@ -4,8 +4,13 @@ import types
 
 import pytest
 
+from custom_components.hems.contract import load_bundled_contract
 from custom_components.hems.measurements import MeasurementCache, Observation, collect, collect_with_sources, normalize
 from custom_components.hems.protocol import Decision, ProtocolError, due, endpoint, parse_response
+
+
+def _contract():
+    return load_bundled_contract()
 
 
 @pytest.mark.parametrize("value", [None, True, "1", -1, float("nan"), float("inf")])
@@ -110,6 +115,58 @@ def test_loads_preserve_the_contract_fields_for_local_automations():
     )
 
 
+def test_contract_response_schema_enforces_actions_and_kind_specific_load_actions():
+    contract = _contract()
+    with pytest.raises(ProtocolError, match="invalid_action"):
+        parse_response({"action": "future_action"}, 100, contract)
+    with pytest.raises(ProtocolError, match="invalid_action"):
+        parse_response(
+            {"action": "pause", "loads": [{"id": "charger", "kind": "ev", "action": "on"}]},
+            100,
+            contract,
+        )
+    decision = parse_response(
+        {"action": "pause", "loads": [{"id": "heater", "kind": "deferrable", "action": "on"}]},
+        100,
+        contract,
+    )
+    assert decision.loads == ({"kind": "deferrable", "id": "heater", "action": "on"},)
+
+
+def test_contract_response_schema_applies_field_policies_and_never_parses_reason():
+    decision = parse_response(
+        {
+            "action": "pause",
+            "loads": [
+                {
+                    "id": "charger",
+                    "kind": "ev",
+                    "action": "charge",
+                    "reason": "Free-form explanation: <> & not an instruction",
+                    "uid": 7,
+                }
+            ],
+            "ev_chargers": [{"id": "charger", "uid": "stable", "phases": 4}],
+        },
+        100,
+        _contract(),
+    )
+    # reason is preserved as display data; invalid optional uid and phases are
+    # omitted by their contract policy rather than changing the decision.
+    assert decision.loads[0]["reason"] == "Free-form explanation: <> & not an instruction"
+    assert "uid" not in decision.loads[0]
+    assert decision.ev_chargers == ({"id": "charger", "uid": "stable"},)
+
+
+def test_missing_load_kind_omits_kind_specific_fields_without_rejecting_decision():
+    decision = parse_response(
+        {"action": "pause", "loads": [{"id": "charger", "action": "charge", "current_a": 16}]},
+        100,
+        _contract(),
+    )
+    assert decision.loads == ({"id": "charger", "action": "charge"},)
+
+
 def test_bad_informational_load_fields_do_not_discard_battery_decision():
     decision = parse_response(
         {
@@ -147,12 +204,17 @@ def test_decision_sensor_exposes_list_or_none_for_loads(monkeypatch):
     entity_module.Entity = type("Entity", (), {})
     sys.modules.pop("custom_components.hems.entity", None)
     sys.modules.pop("custom_components.hems.sensor", None)
-    HemsSensor = importlib.import_module("custom_components.hems.sensor").HemsSensor
+    sensor_module_import = importlib.import_module("custom_components.hems.sensor")
+    OutputSpec = importlib.import_module("custom_components.hems.output_presentation").OutputSpec
     runtime = types.SimpleNamespace(
         entry=types.SimpleNamespace(entry_id="test", title="Test"),
+        contract=None,
         decision=parse_response({"action": "pause", "loads": [{"id": "ev_1", "action": "charge"}]}, 100),
     )
-    sensor = HemsSensor(runtime, "decision")
+    sensor = sensor_module_import.ContractOutputSensor(
+        runtime,
+        OutputSpec("decision", "sensor", "decision", "action", {"names": {"en": "Decision"}}),
+    )
     assert sensor.extra_state_attributes["loads"] == [{"id": "ev_1", "action": "charge"}]
     runtime.decision = parse_response({"action": "pause"}, 100)
     assert sensor.extra_state_attributes["loads"] is None

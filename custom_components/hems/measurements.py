@@ -6,6 +6,7 @@ from typing import Mapping
 
 from .const import PHASE_CURRENT_ENTITY_KEYS
 from .contract import ContractError, load_bundled_contract
+from .local_transformations import TransformationError, evaluate, expression_uses_values
 from .telemetry_config import is_selectable, option_flag_key, selected_entities
 
 
@@ -148,74 +149,165 @@ class MeasurementCache:
             payload["stale"] = stale
         return payload
 def collect_contract_with_sources(options, observe, now, contract):
-    """Collect the supported declarative input surface from validated metadata.
+    """Collect telemetry by applying the contract's bounded local rules.
 
-    This recognizes only the fixed unit conversions and aggregation already
-    defined by the HEMS exchange.  It deliberately does not run ``rules`` or
-    ``expression`` text carried by the contract.
+    Rules are interpreted by a restricted arithmetic grammar, never Python or
+    HA templates.  Units, signs, aggregations, groups and ranges originate in
+    the contract rather than a client list of equipment-specific cases.
     """
-    sample, invalid, reported = {}, [], {}
+    sample, invalid, reported = {}, set(), {}
+    rules = contract.raw.get("rules", {})
+    if not isinstance(rules, Mapping):
+        return {}, ["contract"], {}
     groups = {}
+    expected_groups = {}
+    for input_spec in contract.inputs.values():
+        if is_selectable(input_spec) and input_spec.group:
+            expected_groups.setdefault(input_spec.group, []).append(input_spec)
     for input_spec in contract.inputs.values():
         if not is_selectable(input_spec):
             continue
         entities = selected_entities(input_spec, options)
         if not entities:
             if input_spec.required:
-                invalid.append(input_spec.field)
+                invalid.add(input_spec.field)
             continue
-        kind = (
-            "soc"
-            if input_spec.device_class == "battery"
-            else "current"
-            if input_spec.device_class == "current"
-            else "power"
-        )
-        invert = "invert" in input_spec.options and bool(
-            options.get(option_flag_key(input_spec.key, "invert"), False)
-        )
         observations = [observe(entity) for entity in entities]
-        values = [
-            normalize(observation, now, kind, input_spec.stale_after_s, invert)
-            for observation in observations
-        ]
+        values = [_contract_value(input_spec, observation, now, options, rules) for observation in observations]
         if any(value is None for value in values):
-            invalid.append(input_spec.field)
+            aggregate_rule = _aggregate_rule(input_spec, rules) if input_spec.multiple else None
+            if not aggregate_rule or aggregate_rule.get("all_sources_required", True) is not False:
+                invalid.add(input_spec.field)
+                continue
+        valid = [
+            (value, observation.reported_at)
+            for value, observation in zip(values, observations, strict=True)
+            if value is not None and observation is not None
+        ]
+        if not valid:
+            invalid.add(input_spec.field)
             continue
-        if input_spec.field in {"solar_power", "ev_power_w"} and any(value < 0 for value in values):
-            invalid.append(input_spec.field)
-            continue
+        values, report_times = zip(*valid, strict=True)
+        values, report_times = list(values), list(report_times)
         if input_spec.group:
-            groups.setdefault(input_spec.group, []).append((input_spec, values[0]))
-        elif input_spec.multiple:
-            # The current contract's only selectable aggregate is PV power.
-            # Future aggregation kinds need an explicit declarative building
-            # block before this client can consume them.
-            if input_spec.field == "solar_power":
-                sample[input_spec.field] = sum(values)
-                reported[input_spec.field] = min(
-                    observation.reported_at for observation in observations if observation is not None
-                )
+            if len(values) != 1:
+                invalid.add(input_spec.field)
             else:
-                invalid.append(input_spec.field)
+                groups.setdefault(input_spec.group, []).append((input_spec, values[0], report_times[0]))
+        elif input_spec.multiple:
+            value = _aggregate_contract_values(input_spec, values, options, rules)
+            if value is None:
+                invalid.add(input_spec.field)
+            else:
+                sample[input_spec.field] = value
+                reported[input_spec.field] = min(report_times)
         else:
             sample[input_spec.field] = values[0]
-            reported[input_spec.field] = observations[0].reported_at
+            reported[input_spec.field] = report_times[0]
     for group, members in groups.items():
-        if group != "phase_current" or len(members) != 3:
-            invalid.append("phase_current_a")
+        assembled = _assemble_contract_group(group, members, expected_groups[group], rules)
+        if assembled is None:
+            invalid.update(member.field for member, _value, _reported in members)
             continue
-        ordered = sorted(members, key=lambda member: member[0].definition.get("index", -1))
-        values = [abs(value) for _, value in ordered]
-        if any(value > 250 for value in values):
-            invalid.append("phase_current_a")
-        else:
-            sample["phase_current_a"] = values
-            reported["phase_current_a"] = min(
-                observe(entity).reported_at for input_spec, _value in ordered
-                for entity in selected_entities(input_spec, options)
-            )
-    return sample, invalid, reported
+        field, values, timestamp = assembled
+        sample[field] = values
+        reported[field] = timestamp
+    return sample, sorted(invalid), reported
+
+
+def _input_rules(rules, input_key):
+    """Rules are applicable only when the contract explicitly says so."""
+    return [
+        rule for rule in rules.values()
+        if isinstance(rule, Mapping)
+        and isinstance(rule.get("applies_to"), (list, tuple))
+        and input_key in rule["applies_to"]
+        and isinstance(rule.get("expression"), str)
+    ]
+
+
+def _contract_value(input_spec, observation, now, options, rules):
+    if observation is None:
+        return None
+    if input_spec.stale_after_s is not None and not 0 <= now - observation.reported_at < input_spec.stale_after_s:
+        return None
+    if observation.unit not in input_spec.units:
+        return None
+    try:
+        value = float(observation.value)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(observation.value, bool) or not math.isfinite(value):
+        return None
+    declared_options = {
+        name: bool(options.get(option_flag_key(input_spec.key, name), False))
+        for name in input_spec.options
+    }
+    try:
+        for rule in _input_rules(rules, input_spec.key):
+            if expression_uses_values(rule["expression"]):
+                continue
+            value = evaluate(rule["expression"], value=value, unit=observation.unit, options=declared_options)
+            digits = rule.get("round")
+            if type(digits) is int and digits >= 0:
+                value = round(value, digits)
+    except TransformationError:
+        return None
+    # Temporary input-safety floor retained from 0.2.0a1 at the contract
+    # owner's request. The current contract has no input range/min schema;
+    # remove these guards once it declares those limits itself.
+    if input_spec.key in {"battery_soc", "ev_soc"} and not 0 <= value <= 100:
+        return None
+    if input_spec.key in {"solar_sources", "ev_power"} and value < 0:
+        return None
+    return value
+
+
+def _aggregate_contract_values(input_spec, values, options, rules):
+    declared_options = {
+        name: bool(options.get(option_flag_key(input_spec.key, name), False))
+        for name in input_spec.options
+    }
+    rule = _aggregate_rule(input_spec, rules)
+    if rule is None:
+        return None
+    try:
+        value = evaluate(rule["expression"], values=values, options=declared_options)
+        digits = rule.get("round")
+        return round(value, digits) if type(digits) is int and digits >= 0 else value
+    except TransformationError:
+        return None
+
+
+def _aggregate_rule(input_spec, rules):
+    aggregate_rules = [
+        rule for rule in _input_rules(rules, input_spec.key) if expression_uses_values(rule["expression"])
+    ]
+    return aggregate_rules[0] if len(aggregate_rules) == 1 else None
+
+
+def _assemble_contract_group(group, members, expected_members, rules):
+    group_rules = [rule for rule in rules.values() if isinstance(rule, Mapping) and rule.get("group") == group]
+    if len(group_rules) != 1:
+        return None
+    if group_rules[0].get("all_or_none") is not True or len(members) != len(expected_members):
+        return None
+    fields = {member.field for member, _value, _reported in members}
+    ordered = sorted(members, key=lambda member: member[0].definition.get("index", -1))
+    indexes = [member.definition.get("index") for member, _value, _reported in ordered]
+    if len(fields) != 1 or indexes != list(range(len(ordered))):
+        return None
+    values = [value for _member, value, _reported in ordered]
+    range_definition = group_rules[0].get("range")
+    if isinstance(range_definition, (list, tuple)) and len(range_definition) == 2:
+        lower, upper = range_definition
+        if not all(isinstance(bound, (int, float)) and not isinstance(bound, bool) for bound in (lower, upper)):
+            return None
+        if any(value < lower or value > upper for value in values):
+            return None
+    elif range_definition is not None:
+        return None
+    return next(iter(fields)), values, min(timestamp for _member, _value, timestamp in ordered)
 
 
 def collect_contract(options, observe, now, contract):

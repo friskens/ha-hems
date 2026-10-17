@@ -65,6 +65,35 @@ class ContractInput:
 
 
 @dataclass(frozen=True)
+class ExchangeCadence:
+    """The bounded scheduling facts declared by the HEMS contract."""
+
+    every_s: int
+    also_at_quarter_hour: bool
+    min_spacing_s: int
+    backoff_after_failure_s: int
+
+
+@dataclass(frozen=True)
+class ExchangePolicy:
+    """Safe, non-executable transport settings supplied by the contract."""
+
+    method: str
+    path: str
+    auth_header: str
+    max_response_bytes: int
+    cadence: ExchangeCadence
+
+
+@dataclass(frozen=True)
+class RequestConstants:
+    """Literal request metadata declared in the local transformation rules."""
+
+    heartbeat: bool
+    app_version: str
+
+
+@dataclass(frozen=True)
 class HemsContract:
     """Validated contract metadata and read-only descriptions.
 
@@ -75,6 +104,8 @@ class HemsContract:
     name: str
     version: int
     exchange: Mapping[str, Any]
+    exchange_policy: ExchangePolicy
+    request_constants: RequestConstants
     inputs: Mapping[str, ContractInput]
     outputs: Mapping[str, Mapping[str, Any]]
     raw: Mapping[str, Any]
@@ -130,6 +161,57 @@ def _validate_input(key: str, definition: Any) -> ContractInput:
     )
 
 
+def _validate_exchange(exchange: Mapping[str, Any]) -> ExchangePolicy:
+    """Validate the small transport grammar the client can safely support."""
+    if exchange.get("method") != "POST":
+        raise ContractError("invalid_exchange_method")
+    path = _text(exchange.get("path"), "exchange_path")
+    if not path.startswith("/") or "?" in path or "#" in path:
+        raise ContractError("invalid_exchange_path")
+    auth_header = _text(exchange.get("auth_header"), "exchange_auth_header")
+    if "\r" in auth_header or "\n" in auth_header:
+        raise ContractError("invalid_exchange_auth_header")
+    max_response_bytes = _positive_int(
+        exchange.get("max_response_bytes", 65536), "exchange_max_response_bytes"
+    )
+    cadence_raw = exchange.get("cadence")
+    if cadence_raw is None:
+        cadence = ExchangeCadence(20, True, 20, 60)
+    else:
+        cadence_map = _mapping(cadence_raw, "exchange_cadence")
+        every_s = _positive_int(cadence_map.get("every_s"), "exchange_cadence_every_s")
+        min_spacing_s = _positive_int(
+            cadence_map.get("min_spacing_s"), "exchange_cadence_min_spacing_s"
+        )
+        backoff_after_failure_s = _positive_int(
+            cadence_map.get("backoff_after_failure_s"), "exchange_cadence_backoff_after_failure_s"
+        )
+        also_at_quarter_hour = cadence_map.get("also_at_quarter_hour", False)
+        if type(also_at_quarter_hour) is not bool:
+            raise ContractError("invalid_exchange_cadence_also_at_quarter_hour")
+        cadence = ExchangeCadence(
+            every_s, also_at_quarter_hour, min_spacing_s, backoff_after_failure_s
+        )
+    return ExchangePolicy("POST", path, auth_header, max_response_bytes, cadence)
+
+
+def _validate_request_constants(root: Mapping[str, Any]) -> RequestConstants:
+    """Accept only literal constants, never a template or expression language."""
+    rules = root.get("rules", {})
+    if not isinstance(rules, Mapping):
+        raise ContractError("invalid_rules")
+    constants = rules.get("constants", {})
+    if not isinstance(constants, Mapping):
+        raise ContractError("invalid_request_constants")
+    heartbeat = constants.get("heartbeat", False)
+    app_version = constants.get("app_version", "ha-hems/<version>")
+    if type(heartbeat) is not bool:
+        raise ContractError("invalid_request_heartbeat")
+    if not isinstance(app_version, str) or not app_version or "\r" in app_version or "\n" in app_version:
+        raise ContractError("invalid_request_app_version")
+    return RequestConstants(heartbeat, app_version)
+
+
 def parse_contract(data: Any) -> HemsContract:
     """Validate and freeze contract data without applying its rules.
 
@@ -142,12 +224,8 @@ def parse_contract(data: Any) -> HemsContract:
     version = _positive_int(root.get("contract_version"), "contract_version")
 
     exchange = _mapping(root.get("exchange"), "exchange")
-    if exchange.get("method") != "POST":
-        raise ContractError("invalid_exchange_method")
-    path = _text(exchange.get("path"), "exchange_path")
-    if not path.startswith("/"):
-        raise ContractError("invalid_exchange_path")
-    _text(exchange.get("auth_header"), "exchange_auth_header")
+    exchange_policy = _validate_exchange(exchange)
+    request_constants = _validate_request_constants(root)
 
     raw_inputs = _mapping(root.get("inputs"), "inputs")
     inputs: dict[str, ContractInput] = {}
@@ -177,6 +255,8 @@ def parse_contract(data: Any) -> HemsContract:
         name=name,
         version=version,
         exchange=_readonly(exchange),
+        exchange_policy=exchange_policy,
+        request_constants=request_constants,
         inputs=MappingProxyType(inputs),
         outputs=MappingProxyType(outputs),
         raw=_readonly(root),

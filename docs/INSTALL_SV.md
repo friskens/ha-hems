@@ -53,3 +53,7 @@ kan inte avgöra. Den använder lokala mätningar efter ett nytt beslut men skri
 aldrig, försöker aldrig igen och skickas inte tillbaka till HEMS. När en action
 är ny väntar den först; ett färskt HEMS-svar och en separat lokal observation
 krävs innan den kan säga något säkert.
+
+Se även [migration för lokal automation](LOCAL_AUTOMATION_MIGRATION.md) för
+vad som försvinner från 0.1 och hur `loads` skiljer billaddning (`charge` /
+`stop`) från flyttbara laster (`on` / `off`).

@@ -115,9 +115,6 @@
           "disconnected": "Disconnected"
         }
       },
-      "ev_soc": {
-        "name": "Reported EV state of charge"
-      },
       "power_target": {
         "name": "Power target"
       },

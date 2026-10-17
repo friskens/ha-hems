@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0a2
+
+- Build the HEMS decision, declared extra entities and connection presentation
+  from the bundled HEMS contract's safe declarative output grammar rather than
+  a client-side list. Contract expressions are evaluated only by a restricted,
+  non-executable grammar.
+- Preserve the contract's informational `power`, `power_unit`, `soc` and
+  `ev_chargers` response data on the decision entity. The client still does
+  not actuate a charger or any other load.
+- Restrict each dynamic load entity to the contract-declared
+  `attributes_from_entry` fields while retaining its stable HEMS identity and
+  marking it unavailable when absent.
+
 ## 0.2.0a1
 
 > **Breaking change:** HEMS Client no longer runs adapter scripts or controls

@@ -1,6 +1,11 @@
 """Contract-derived telemetry configuration tests without Home Assistant."""
 
-from custom_components.hems.contract import load_bundled_contract
+import json
+
+import pytest
+
+from custom_components.hems.contract import bundled_contract_path, load_bundled_contract, parse_contract
+from custom_components.hems.local_transformations import TransformationError, evaluate
 from custom_components.hems.measurements import Observation, collect_contract
 from custom_components.hems.telemetry_config import (
     SelectedState,
@@ -103,7 +108,7 @@ def test_contract_options_collect_without_executing_contract_expressions():
     assert not invalid
 
 
-def test_contract_omits_negative_ev_power():
+def test_interim_input_safety_keeps_invalid_ev_power_out_of_the_request():
     contract = load_bundled_contract()
     options = {
         option_key("battery_soc"): "sensor.soc",
@@ -120,5 +125,49 @@ def test_contract_omits_negative_ev_power():
         "sensor.ev_power": Observation(-2, "kW", 100),
     }
     sample, invalid = collect_contract(options, observations.get, 110, contract)
+    # Temporary 0.2.0a1 guard requested by the contract owner. It can be
+    # removed when the contract declares an input min/range schema.
     assert "ev_power_w" not in sample
-    assert "ev_power_w" in invalid
+    assert invalid == ["ev_power_w"]
+
+
+def test_transformations_follow_a_renamed_contract_input_not_client_semantics():
+    """A safe future input can define its own unit/sign transformation."""
+    data = json.loads(bundled_contract_path().read_text(encoding="utf-8"))
+    data["inputs"] = {
+        "future_meter": {
+            "field": "future_value",
+            "required": True,
+            "domain": "sensor",
+            "units": ["quanta"],
+            "options": ["invert"],
+            "stale_after_s": 60,
+        }
+    }
+    data["rules"] = {
+        "scale": {
+            "applies_to": ["future_meter"],
+            "expression": "value * 10 if unit == 'quanta' else value",
+        },
+        "invert": {
+            "applies_to": ["future_meter"],
+            "expression": "-value if option.invert else value",
+        },
+    }
+    contract = parse_contract(data)
+    sample, invalid = collect_contract(
+        {
+            option_key("future_meter"): "sensor.future",
+            option_flag_key("future_meter", "invert"): True,
+        },
+        lambda _entity: Observation(3, "quanta", 100),
+        110,
+        contract,
+    )
+    assert sample == {"future_value": -30}
+    assert not invalid
+
+
+def test_local_expression_grammar_cannot_execute_contract_code():
+    with pytest.raises(TransformationError):
+        evaluate("__import__('os').system('never')", value=1)

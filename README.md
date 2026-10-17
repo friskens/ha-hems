@@ -5,12 +5,12 @@ A community Home Assistant integration for the HEMS service at
 measurements, exchanges them with HEMS, and exposes the returned decisions as
 Home Assistant entities.
 
-**0.2.0a1 is an experimental, breaking alpha.** It no longer calls scripts or
+**0.2.0a2 is an experimental, breaking alpha.** It no longer calls scripts or
 controls inverters, chargers or loads. Your own Home Assistant automation or
 template consumes the HEMS decision and controls the equipment you choose.
 
 [Svenska](docs/INSTALL_SV.md) · [Protocol](docs/PROTOCOL.md) ·
-[Contract source](contract/hems-contract.json) · [Roadmap](docs/ROADMAP.md)
+[Contract source](contract/hems-contract.json) · [Local automation migration](docs/LOCAL_AUTOMATION_MIGRATION.md) · [Roadmap](docs/ROADMAP.md)
 
 ## How it works
 
@@ -24,7 +24,8 @@ from that file and CI prevents them from drifting apart.
 
 HEMS Client lets you select existing Home Assistant sensors for the contract's
 inputs. It validates those selections, sends telemetry to HEMS, and provides
-decision, freshness, connection and informational load/charger entities. It
+decision, freshness, connection and informational load/charger entities from
+the contract's safe declarative output fields. It
 does not create, edit or execute your automations and never calls services that
 operate equipment.
 
