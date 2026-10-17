@@ -253,6 +253,13 @@ def _contract_value(input_spec, observation, now, options, rules):
                 value = round(value, digits)
     except TransformationError:
         return None
+    # Temporary input-safety floor retained from 0.2.0a1 at the contract
+    # owner's request. The current contract has no input range/min schema;
+    # remove these guards once it declares those limits itself.
+    if input_spec.key in {"battery_soc", "ev_soc"} and not 0 <= value <= 100:
+        return None
+    if input_spec.key in {"solar_sources", "ev_power"} and value < 0:
+        return None
     return value
 
 

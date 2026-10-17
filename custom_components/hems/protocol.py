@@ -197,6 +197,10 @@ def _parse_entries(value, definition: Mapping, field: str):
                 continue
             required_kind = item.get("kind")
             if required_kind is not None and entry_kind != required_kind:
+                # An absent/invalid kind is a display-level inconsistency in
+                # this optional field. Do not discard the battery decision.
+                if entry_kind is None:
+                    continue
                 policy = _invalid_policy(item, name)
                 if policy is not _OMIT:
                     raise policy

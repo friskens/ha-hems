@@ -108,7 +108,7 @@ def test_contract_options_collect_without_executing_contract_expressions():
     assert not invalid
 
 
-def test_contract_preserves_a_value_when_the_contract_declares_no_sign_rule():
+def test_interim_input_safety_keeps_invalid_ev_power_out_of_the_request():
     contract = load_bundled_contract()
     options = {
         option_key("battery_soc"): "sensor.soc",
@@ -125,10 +125,10 @@ def test_contract_preserves_a_value_when_the_contract_declares_no_sign_rule():
         "sensor.ev_power": Observation(-2, "kW", 100),
     }
     sample, invalid = collect_contract(options, observations.get, 110, contract)
-    # Sign is only changed or rejected when the contract declares a rule.  The
-    # current contract has no sign rule for this optional telemetry input.
-    assert sample["ev_power_w"] == -2000
-    assert not invalid
+    # Temporary 0.2.0a1 guard requested by the contract owner. It can be
+    # removed when the contract declares an input min/range schema.
+    assert "ev_power_w" not in sample
+    assert invalid == ["ev_power_w"]
 
 
 def test_transformations_follow_a_renamed_contract_input_not_client_semantics():

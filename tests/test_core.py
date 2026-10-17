@@ -158,6 +158,15 @@ def test_contract_response_schema_applies_field_policies_and_never_parses_reason
     assert decision.ev_chargers == ({"id": "charger", "uid": "stable"},)
 
 
+def test_missing_load_kind_omits_kind_specific_fields_without_rejecting_decision():
+    decision = parse_response(
+        {"action": "pause", "loads": [{"id": "charger", "action": "charge", "current_a": 16}]},
+        100,
+        _contract(),
+    )
+    assert decision.loads == ({"id": "charger", "action": "charge"},)
+
+
 def test_bad_informational_load_fields_do_not_discard_battery_decision():
     decision = parse_response(
         {

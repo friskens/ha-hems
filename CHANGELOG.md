@@ -4,8 +4,8 @@
 
 - Build the HEMS decision, declared extra entities and connection presentation
   from the bundled HEMS contract's safe declarative output grammar rather than
-  a client-side list. Contract expressions remain documentation only and are
-  never evaluated.
+  a client-side list. Contract expressions are evaluated only by a restricted,
+  non-executable grammar.
 - Preserve the contract's informational `power`, `power_unit`, `soc` and
   `ev_chargers` response data on the decision entity. The client still does
   not actuate a charger or any other load.
