@@ -10,7 +10,7 @@ controls inverters, chargers or loads. Your own Home Assistant automation or
 template consumes the HEMS decision and controls the equipment you choose.
 
 [Svenska](docs/INSTALL_SV.md) · [Protocol](docs/PROTOCOL.md) ·
-[Contract source](contract/hems-contract.json) · [Roadmap](docs/ROADMAP.md)
+[Contract source](contract/hems-contract.json) · [Local automation migration](docs/LOCAL_AUTOMATION_MIGRATION.md) · [Roadmap](docs/ROADMAP.md)
 
 ## How it works
 
