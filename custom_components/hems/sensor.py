@@ -19,14 +19,24 @@ async def async_setup_entry(hass, entry, async_add_entities):
     runtime = entry.runtime_data
     output_tracker = OutputTracker()
     load_fields = load_attributes(runtime.contract)
+    output_entities = []
 
     def sync_outputs():
         decision = runtime.decision
         if decision is None:
             return
+        # Runtime subscribers are stored without an ordering guarantee. Update
+        # the tracker before asking each existing entity to publish, otherwise
+        # a load sensor can show the previous EV action/attributes until the
+        # next timer tick.
         new_entries = output_tracker.update(decision.loads)
         if new_entries:
-            async_add_entities([HemsOutputSensor(runtime, output_tracker, item, load_fields) for item in new_entries])
+            new_entities = [HemsOutputSensor(runtime, output_tracker, item, load_fields) for item in new_entries]
+            output_entities.extend(new_entities)
+            async_add_entities(new_entities)
+        for output_entity in output_entities:
+            if output_entity.hass is not None:
+                output_entity.async_write_ha_state()
 
     entry.async_on_unload(runtime.subscribe(sync_outputs))
     async_add_entities(
