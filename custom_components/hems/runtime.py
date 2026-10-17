@@ -20,8 +20,8 @@ class Runtime:
     def __init__(self, hass, entry, session):
         self.hass, self.entry = hass, entry
         self.options = entry.options
-        # A contract is HEMS-owned data.  It controls the accepted telemetry
-        # names, but never provides executable local rules.
+        # A contract is HEMS-owned data. It declares exchange cadence and
+        # accepted telemetry names, but never provides executable code.
         self.contract_store = ContractStore()
         try:
             self.contract_store = ContractStore(load_bundled_contract())
@@ -140,8 +140,6 @@ class Runtime:
             await self.fail("contract_unavailable")
             self.publish()
             return
-        if self.telemetry_enabled and now - self.last_success >= 180:
-            await self.fail("communication_timeout")
         current, self.invalid, reported = collect_with_sources(self.options, self.observe, now)
         self.measurement_cache.update(current, reported)
         await self._sync_configuration_issues()
@@ -163,8 +161,17 @@ class Runtime:
         if required_missing:
             await self.fail("measurements_unavailable")
         elif self.telemetry_enabled and due(
-            now, self.last_attempt, self.last_success, self.interval, self.measurements, self.previous
-        ) and (not self._exchange_failed or now - self.last_attempt >= 60):
+            now,
+            self.last_attempt,
+            self.last_success,
+            self.interval,
+            self.measurements,
+            self.previous,
+            self.contract.exchange_policy.cadence,
+        ) and (
+            not self._exchange_failed
+            or now - self.last_attempt >= self.contract.exchange_policy.cadence.backoff_after_failure_s
+        ):
             self.last_attempt = now
             try:
                 decision = await self.client.exchange(self.measurements, time.time)
@@ -177,8 +184,7 @@ class Runtime:
             except (TransportError, ProtocolError) as err:
                 self._exchange_failed = True
                 self.error = str(err)
-                if isinstance(err, ProtocolError) or now - self.last_success >= 180:
-                    await self.fail(str(err))
+                await self.fail(str(err))
             else:
                 self._exchange_failed = False
                 self.decision = decision

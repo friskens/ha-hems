@@ -35,7 +35,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             for spec in output_specs(runtime.contract)
             if spec.entity == "sensor"
         ]
-        + [LocalSensor(runtime, key) for key in ("execution", "ev_soc")]
+        + [ExecutionDiagnostic(runtime)]
     )
 
 
@@ -84,34 +84,25 @@ class ContractOutputSensor(HemsEntity, SensorEntity):
         return None
 
 
-class LocalSensor(HemsEntity, SensorEntity):
-    """Client diagnostics, deliberately outside the HEMS output contract."""
+class ExecutionDiagnostic(HemsEntity, SensorEntity):
+    """Client diagnostic, deliberately outside the HEMS output contract."""
 
-    def __init__(self, runtime, key):
-        super().__init__(runtime, key)
-        self.key = key
-        if key == "ev_soc":
-            self._attr_native_unit_of_measurement = "%"
-            self._attr_device_class = SensorDeviceClass.BATTERY
-        else:
-            self._attr_device_class = SensorDeviceClass.ENUM
-            self._attr_options = EXECUTION_STATES
+    def __init__(self, runtime):
+        super().__init__(runtime, "execution")
+        self._attr_device_class = SensorDeviceClass.ENUM
+        self._attr_options = EXECUTION_STATES
 
     @property
     def native_value(self):
-        if self.key == "execution":
-            return self.runtime.status
-        return self.runtime.previous.get("ev_soc_pct") if time.time() - self.runtime.last_success < 150 else None
+        return self.runtime.status
 
     @property
     def extra_state_attributes(self):
-        if self.key == "execution":
-            r = self.runtime
-            return {
-                "error": r.error,
-                "telemetry_enabled": r.telemetry_enabled,
-                "invalid_fields": r.invalid,
-                "stale_fields": r.measurements.get("stale", []),
-                "telemetry_interval_seconds": r.interval,
-            }
-        return None
+        r = self.runtime
+        return {
+            "error": r.error,
+            "telemetry_enabled": r.telemetry_enabled,
+            "invalid_fields": r.invalid,
+            "stale_fields": r.measurements.get("stale", []),
+            "telemetry_interval_seconds": r.interval,
+        }

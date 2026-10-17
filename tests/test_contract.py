@@ -33,6 +33,12 @@ def test_loads_authoritative_bundled_contract_as_read_only_data():
     assert contract.version == 1
     assert contract.input("battery_soc").units == ("%",)
     assert contract.output("decision")["state_from"] == "action"
+    assert contract.exchange_policy.path == "/battery"
+    assert contract.exchange_policy.cadence.every_s == 20
+    assert contract.exchange_policy.cadence.min_spacing_s == 20
+    assert contract.exchange_policy.cadence.backoff_after_failure_s == 60
+    assert contract.exchange_policy.max_response_bytes == 65536
+    assert contract.request_constants.app_version == "ha-hems/<version>"
     with pytest.raises(TypeError):
         contract.raw["contract"] = "other"
 
@@ -63,6 +69,36 @@ def test_unknown_additive_fields_are_preserved_without_interpretation():
     ],
 )
 def test_rejects_structurally_unusable_contract(change, error):
+    data = bundled_data()
+    change(data)
+    with pytest.raises(ContractError, match=error):
+        parse_contract(data)
+
+
+@pytest.mark.parametrize(
+    "change, error",
+    [
+        (lambda data: data["exchange"].update(max_response_bytes=0), "invalid_exchange_max_response_bytes"),
+        (lambda data: data["exchange"]["cadence"].update(every_s=0), "invalid_exchange_cadence_every_s"),
+        (lambda data: data["exchange"]["cadence"].update(min_spacing_s=False), "invalid_exchange_cadence_min_spacing_s"),
+        (lambda data: data["exchange"]["cadence"].update(also_at_quarter_hour="yes"), "invalid_exchange_cadence_also_at_quarter_hour"),
+    ],
+)
+def test_rejects_unsafe_exchange_policy(change, error):
+    data = bundled_data()
+    change(data)
+    with pytest.raises(ContractError, match=error):
+        parse_contract(data)
+
+
+@pytest.mark.parametrize(
+    "change, error",
+    [
+        (lambda data: data["rules"]["constants"].update(heartbeat="false"), "invalid_request_heartbeat"),
+        (lambda data: data["rules"]["constants"].update(app_version="bad\nvalue"), "invalid_request_app_version"),
+    ],
+)
+def test_rejects_non_literal_request_constants(change, error):
     data = bundled_data()
     change(data)
     with pytest.raises(ContractError, match=error):

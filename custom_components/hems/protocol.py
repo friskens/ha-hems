@@ -8,6 +8,9 @@ from urllib.parse import urlsplit, urlunsplit
 from .const import DEFAULT_INTERVAL
 
 
+_OMIT = object()
+
+
 class ProtocolError(ValueError):
     """Unusable response; messages must never contain server bodies or secrets."""
 
@@ -25,8 +28,8 @@ def number(value, field, minimum=None, maximum=None):
     return float(value)
 
 
-def endpoint(value):
-    """Validate an HTTPS endpoint and default a provider base URL to /battery."""
+def endpoint(value, default_path="/battery"):
+    """Validate an HTTPS endpoint and add the contract path to a base URL."""
     try:
         value = value.strip()
         url = urlsplit(value)
@@ -43,8 +46,10 @@ def endpoint(value):
         valid = False
     if not valid:
         raise ProtocolError("invalid_endpoint")
+    if not isinstance(default_path, str) or not default_path.startswith("/"):
+        raise ProtocolError("invalid_endpoint")
     if url.path in ("", "/"):
-        return urlunsplit((url.scheme, url.netloc, "/battery", "", ""))
+        return urlunsplit((url.scheme, url.netloc, default_path, "", ""))
     return value.rstrip("/")
 
 
@@ -71,8 +76,61 @@ class Decision:
         return self.action, watts
 
 
+def _invalid_policy(definition: Mapping, field: str):
+    """Return the declared invalid-value policy, defaulting to rejection.
+
+    The contract is authoritative for whether optional bad data is discarded or
+    makes the response unusable.  There is deliberately no client-side list of
+    "informational" response fields here.
+    """
+    return _OMIT if definition.get("on_invalid") == "omit_field" else ProtocolError(f"invalid_{field}")
+
+
+def _field_value(value, definition: Mapping, field: str):
+    """Validate one declarative response field without interpreting it.
+
+    This is a small schema interpreter, not a coercion layer.  In particular,
+    it does not turn strings into numbers or execute contract text.  A field
+    marked ``never_parse`` is still type-checked, but is otherwise passed
+    through unchanged (used by human display text such as ``reason``).
+    """
+    kind = definition.get("type")
+    try:
+        if kind == "number":
+            checked = number(value, field, definition.get("min"), definition.get("max"))
+        elif kind == "integer":
+            if type(value) is not int:
+                raise ProtocolError(f"invalid_{field}")
+            minimum, maximum = definition.get("min"), definition.get("max")
+            if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
+                raise ProtocolError(f"invalid_{field}")
+            checked = value
+        elif kind == "boolean":
+            if type(value) is not bool:
+                raise ProtocolError(f"invalid_{field}")
+            checked = value
+        elif kind == "string":
+            if not isinstance(value, str) or (definition.get("non_empty") is True and not value.strip()):
+                raise ProtocolError(f"invalid_{field}")
+            checked = value
+        elif kind == "enum":
+            if value not in definition.get("values", ()):
+                raise ProtocolError(f"invalid_{field}")
+            checked = value
+        else:
+            # Unknown future field kinds cannot be safely interpreted.  The
+            # output is omitted, rather than allowing arbitrary JSON through.
+            return _OMIT
+    except ProtocolError:
+        policy = _invalid_policy(definition, field)
+        if policy is _OMIT:
+            return _OMIT
+        raise policy
+    return value if definition.get("never_parse") is True else checked
+
+
 def _contract_attributes(data, contract):
-    """Retain only declared, typed decision response fields from HEMS."""
+    """Retain only contract-declared response attributes from HEMS."""
     decision = contract.output("decision") if contract else None
     definitions = decision.get("attributes") if isinstance(decision, Mapping) else None
     if not isinstance(definitions, Mapping):
@@ -81,27 +139,91 @@ def _contract_attributes(data, contract):
     for name, definition in definitions.items():
         if name not in data or not isinstance(definition, Mapping) or definition.get("local") is True:
             continue
-        value, kind = data[name], definition.get("type")
-        try:
-            if kind == "number":
-                value = number(value, name, definition.get("min"), definition.get("max"))
-            elif kind == "integer":
-                if type(value) is not int or value < definition.get("min", value) or value > definition.get("max", value):
-                    raise ProtocolError(f"invalid_{name}")
-            elif kind == "enum":
-                if value not in definition.get("values", ()):
-                    raise ProtocolError(f"invalid_{name}")
-            elif kind == "string":
-                if not isinstance(value, str):
-                    raise ProtocolError(f"invalid_{name}")
-            else:
-                continue
-        except ProtocolError:
-            if definition.get("on_invalid") == "omit_field":
-                continue
-            raise
-        result[name] = value
+        value = _field_value(data[name], definition, name)
+        if value is not _OMIT:
+            result[name] = value
     return result
+
+
+def _parse_entries(value, definition: Mapping, field: str):
+    """Parse a list output from its entry schema in the contract."""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        policy = _invalid_policy(definition, field)
+        if policy is _OMIT:
+            return None
+        raise policy
+    schema = definition.get("entry")
+    if not isinstance(schema, Mapping):
+        # A contract did not declare a safe entry grammar.  Never expose raw
+        # future JSON as a pseudo-entity attribute.
+        return None
+    parsed: list[dict] = []
+    unique_seen: dict[str, set] = {}
+
+    def field_value(raw_value, item: Mapping, name: str):
+        """Use an entry policy first, otherwise inherit the list policy."""
+        try:
+            return _field_value(raw_value, item, name)
+        except ProtocolError:
+            policy = _invalid_policy(item if "on_invalid" in item else definition, name)
+            if policy is _OMIT:
+                return _OMIT
+            raise policy
+
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            policy = _invalid_policy(definition, field)
+            if policy is _OMIT:
+                continue
+            raise policy
+        entry: dict = {}
+        # Validate kind first: action and kind-restricted fields refer to it.
+        kind_definition = schema.get("kind")
+        if isinstance(kind_definition, Mapping) and "kind" in raw:
+            parsed_kind = field_value(raw["kind"], kind_definition, "kind")
+            if parsed_kind is not _OMIT:
+                entry["kind"] = parsed_kind
+        entry_kind = entry.get("kind")
+        for name, item in schema.items():
+            if name == "kind" or not isinstance(name, str) or not isinstance(item, Mapping):
+                continue
+            if name not in raw:
+                if item.get("required") is True:
+                    policy = _invalid_policy(item, name)
+                    if policy is not _OMIT:
+                        raise policy
+                continue
+            required_kind = item.get("kind")
+            if required_kind is not None and entry_kind != required_kind:
+                policy = _invalid_policy(item, name)
+                if policy is not _OMIT:
+                    raise policy
+                continue
+            parsed_value = field_value(raw[name], item, name)
+            if parsed_value is _OMIT:
+                continue
+            values_by_kind = item.get("values_by_kind")
+            if isinstance(values_by_kind, Mapping) and entry_kind in values_by_kind:
+                allowed = values_by_kind[entry_kind]
+                if not isinstance(allowed, (list, tuple)) or parsed_value not in allowed:
+                    policy = _invalid_policy(item, name)
+                    if policy is not _OMIT:
+                        raise policy
+                    continue
+            entry[name] = parsed_value
+            if item.get("unique_in_list") is True:
+                values = unique_seen.setdefault(name, set())
+                if parsed_value in values:
+                    policy = _invalid_policy(item, name)
+                    if policy is not _OMIT:
+                        raise policy
+                    entry.pop(name, None)
+                    continue
+                values.add(parsed_value)
+        parsed.append(entry)
+    return tuple(parsed)
 
 
 def parse_response(data, received_at, contract=None):
@@ -111,6 +233,15 @@ def parse_response(data, received_at, contract=None):
     if not isinstance(data, dict) or not isinstance(data.get("action"), str) or not data["action"].strip():
         raise ProtocolError("invalid_action")
     action = data["action"]
+    if contract:
+        decision_definition = contract.output("decision") or {}
+        allowed_actions = decision_definition.get("values", ())
+        if action not in allowed_actions:
+            policy = _invalid_policy(decision_definition, "action")
+            if policy is not _OMIT:
+                raise policy
+            # A decision without an action cannot be presented safely.
+            raise ProtocolError("invalid_action")
     presentation = _contract_attributes(data, contract)
     if contract:
         decision_definition = contract.output("decision") or {}
@@ -145,65 +276,53 @@ def parse_response(data, received_at, contract=None):
         if "soc" in data:
             number(data["soc"], "soc", 0, 100)
         presentation.update(power_kw=power, command_interval_seconds=interval)
-    loads = data.get("loads")
-    parsed = None
-    if loads is not None:
-        if not isinstance(loads, list):
-            raise ProtocolError("invalid_loads")
-        parsed, seen = [], set()
-        for load in loads:
-            if not isinstance(load, dict):
-                raise ProtocolError("invalid_load")
-            load_id, load_action = load.get("id"), load.get("action")
-            if (
-                not isinstance(load_id, str)
-                or not load_id.strip()
-                or load_id in seen
-                or not isinstance(load_action, str)
-                or not load_action.strip()
-            ):
-                raise ProtocolError("invalid_load")
-            seen.add(load_id)
-            entry = {"id": load_id, "action": load_action}
-            for field in ("kind", "name", "reason", "uid"):
-                if isinstance(load.get(field), str):
-                    entry[field] = load[field]
-            for field, maximum in (("current_a", None), ("target_pct", 100), ("power_kw", None)):
-                if field in load:
-                    number(load[field], field, 0, maximum)
-                    entry[field] = load[field]
-            if "power_w" in load:
-                try:
-                    number(load["power_w"], "power_w", 0)
-                except ProtocolError:
-                    pass
-                else:
-                    entry["power_w"] = load["power_w"]
-            if type(load.get("reports_power")) is bool:
-                entry["reports_power"] = load["reports_power"]
-            if type(load.get("enabled")) is bool:
-                entry["enabled"] = load["enabled"]
-            parsed.append(entry)
-        parsed = tuple(parsed)
-    chargers = data.get("ev_chargers")
-    parsed_chargers = None
-    if chargers is not None:
-        if not isinstance(chargers, list):
-            raise ProtocolError("invalid_ev_chargers")
-        parsed_chargers = []
-        for charger in chargers:
-            if not isinstance(charger, dict):
-                raise ProtocolError("invalid_ev_charger")
-            entry = {}
-            for field in ("id", "uid", "name"):
-                if isinstance(charger.get(field), str) and charger[field].strip():
-                    entry[field] = charger[field]
-            if "phases" in charger:
-                phases = charger["phases"]
-                if type(phases) is int and 1 <= phases <= 3:
-                    entry["phases"] = phases
-            parsed_chargers.append(entry)
-        parsed_chargers = tuple(parsed_chargers)
+    if contract:
+        loads_definition = contract.output("loads")
+        charger_definition = contract.output("ev_chargers")
+        parsed = _parse_entries(
+            data.get(loads_definition.get("from", "loads"))
+            if isinstance(loads_definition, Mapping)
+            else None,
+            loads_definition,
+            "loads",
+        ) if isinstance(loads_definition, Mapping) else None
+        parsed_chargers = _parse_entries(
+            data.get(charger_definition.get("from", "ev_chargers"))
+            if isinstance(charger_definition, Mapping)
+            else None,
+            charger_definition,
+            "ev_chargers",
+        ) if isinstance(charger_definition, Mapping) else None
+    else:
+        # Compatibility for pre-contract callers.  The supported runtime path
+        # always supplies a contract, so this deliberately narrow fallback is
+        # not a second source of semantics for contracted responses.
+        parsed = _parse_entries(data.get("loads"), {
+            "on_invalid": "reject_response",
+            "entry": {
+                "id": {"type": "string", "non_empty": True, "required": True, "unique_in_list": True},
+                "action": {"type": "string", "non_empty": True, "required": True},
+                "kind": {"type": "enum", "values": ["ev", "deferrable"], "on_invalid": "omit_field"},
+                "name": {"type": "string", "on_invalid": "omit_field"},
+                "reason": {"type": "string", "never_parse": True, "on_invalid": "omit_field"},
+                "uid": {"type": "string", "on_invalid": "omit_field"},
+                "power_kw": {"type": "number", "min": 0, "on_invalid": "reject_response"},
+                "power_w": {"type": "number", "min": 0, "on_invalid": "omit_field"},
+                "current_a": {"type": "number", "min": 0, "on_invalid": "reject_response"},
+                "target_pct": {"type": "number", "min": 0, "max": 100, "on_invalid": "reject_response"},
+                "reports_power": {"type": "boolean", "on_invalid": "omit_field"},
+                "enabled": {"type": "boolean", "on_invalid": "omit_field"},
+            },
+        }, "loads")
+        parsed_chargers = _parse_entries(data.get("ev_chargers"), {
+            "on_invalid": "reject_response",
+            "entry": {
+                "id": {"type": "string", "on_invalid": "omit_field"},
+                "uid": {"type": "string", "on_invalid": "omit_field"},
+                "name": {"type": "string", "on_invalid": "omit_field"},
+                "phases": {"type": "integer", "min": 1, "max": 3, "on_invalid": "omit_field"},
+            },
+        }, "ev_chargers")
     # The contract-derived presentation mapping intentionally contains no
     # client-maintained list of optional response fields.  Derived attributes
     # are evaluated later by the restricted presentation expression engine.
@@ -226,8 +345,17 @@ def changed(current, previous):
     return False
 
 
-def due(now, last_attempt, last_success, interval, sample, previous):
-    quarter = int(now // 900) != int(last_attempt // 900)
-    return (quarter or now - last_attempt >= 20) and (
-        quarter or now - last_success >= interval or changed(sample, previous)
+def due(now, last_attempt, last_success, interval, sample, previous, cadence=None):
+    """Return whether an exchange is due under declared cadence data.
+
+    ``interval`` remains a compatibility argument for callers predating the
+    contract.  A validated contract cadence takes precedence: the response's
+    command interval is presentation data, not an undeclared scheduling rule.
+    """
+    every_s = cadence.every_s if cadence else interval
+    min_spacing_s = cadence.min_spacing_s if cadence else 20
+    quarter_enabled = cadence.also_at_quarter_hour if cadence else True
+    quarter = quarter_enabled and int(now // 900) != int(last_attempt // 900)
+    return (quarter or now - last_attempt >= min_spacing_s) and (
+        quarter or now - last_success >= every_s or changed(sample, previous)
     )

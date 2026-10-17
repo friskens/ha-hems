@@ -30,16 +30,6 @@ class TelemetryInput:
     options: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
-class FollowedStatus:
-    """Informational assessment only; it never asks HA to actuate anything."""
-
-    state: str
-    reason: str
-    action: str | None
-    since: float | None
-
-
 def telemetry_inputs(contract_inputs: Mapping[str, Any]) -> tuple[TelemetryInput, ...]:
     """Expose known selector building blocks and ignore unusable future fields.
 
@@ -83,57 +73,3 @@ def telemetry_inputs(contract_inputs: Mapping[str, Any]) -> tuple[TelemetryInput
             )
         )
     return tuple(result)
-
-
-def connection_state(last_success: float | None, now: float) -> str:
-    """Return the contract's presentation-only connection state."""
-    if last_success is None or last_success <= 0:
-        return "disconnected"
-    age = max(0, now - last_success)
-    if age < 150:
-        return "connected"
-    if age < 600:
-        return "warning"
-    return "disconnected"
-
-
-def decision_is_fresh(received_at: float | None, now: float, max_age: float = 90) -> bool:
-    """A future timestamp is not fresh; clocks must not make a decision valid."""
-    return received_at is not None and 0 <= now - received_at < max_age
-
-
-def followed_status(
-    *,
-    action: str | None,
-    received_at: float | None,
-    decision_since: float | None = None,
-    observation: bool | None,
-    observed_at: float | None,
-    now: float,
-    grace_seconds: float = 180,
-) -> FollowedStatus:
-    """Produce an honest soft status from a separate, local observation.
-
-    ``observation`` is deliberately a boolean/None supplied by a future
-    contract-defined evaluator.  This client does not infer a vendor state,
-    run a template, or command equipment.  ``None`` means there is insufficient
-    evidence and must remain distinguishable from ``False``.
-    """
-    if action is None or received_at is None:
-        return FollowedStatus("cannot_tell", "no_decision", action, received_at)
-    if not decision_is_fresh(received_at, now):
-        return FollowedStatus("cannot_tell", "decision_stale", action, received_at)
-    # Communication may refresh an unchanged decision every exchange.  Keep
-    # that fresh separately from the time the action itself was introduced,
-    # otherwise a three-minute observation window could never elapse.
-    since = decision_since if decision_since is not None else received_at
-    if now - since < grace_seconds:
-        return FollowedStatus("waiting", "grace_period", action, since)
-    if observation is None or observed_at is None or observed_at < received_at:
-        return FollowedStatus("cannot_tell", "no_current_observation", action, received_at)
-    return FollowedStatus(
-        "following" if observation else "not_following",
-        "observation_matches" if observation else "observation_differs",
-        action,
-        since,
-    )

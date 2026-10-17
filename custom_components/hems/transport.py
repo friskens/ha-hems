@@ -20,8 +20,10 @@ class AuthError(TransportError):
 class Client:
     def __init__(self, session, url, key, contract=None):
         self.session = session
-        self.url = endpoint(url)
         self._key = key
+        self.contract = contract
+        self._exchange = contract.exchange_policy if contract else None
+        self.url = endpoint(url, self._exchange.path if self._exchange else "/battery")
         # The contract describes which telemetry names may cross this boundary.
         # It is data, not code: no contract expression is evaluated here.
         if contract is None:
@@ -34,7 +36,6 @@ class Client:
                 for input_ in contract.inputs.values()
                 if input_.definition.get("client_status") != "not_sent"
             )
-        self.contract = contract
 
     async def exchange(self, measurements, now):
         # The allowlist prevents callers from reintroducing credentials or
@@ -45,12 +46,18 @@ class Client:
             for key, value in measurements.items()
             if key in self._allowed_fields or key == "stale"
         }
-        payload.update(heartbeat=False, app_version=f"ha-hems/{VERSION}")
+        # The contract's constants are declarative literal values.  The only
+        # substitution supported is its documented version marker; this is
+        # deliberately not a general template language.
+        constants = self.contract.request_constants if self.contract else None
+        heartbeat = constants.heartbeat if constants else False
+        app_version = constants.app_version if constants else "ha-hems/<version>"
+        payload.update(heartbeat=heartbeat, app_version=app_version.replace("<version>", VERSION))
         try:
             async with asyncio.timeout(15):
                 async with self.session.post(
                     self.url,
-                    headers={"X-Api-Key": self._key},
+                    headers={(self._exchange.auth_header if self._exchange else "X-Api-Key"): self._key},
                     json=payload,
                     allow_redirects=False,
                 ) as response:
@@ -61,7 +68,7 @@ class Client:
                     raw = bytearray()
                     async for chunk in response.content.iter_chunked(8192):
                         raw.extend(chunk)
-                        if len(raw) > 65536:
+                        if len(raw) > (self._exchange.max_response_bytes if self._exchange else 65536):
                             raise ProtocolError("response_too_large")
                     try:
                         data = json.loads(raw)

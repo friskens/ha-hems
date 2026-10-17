@@ -4,7 +4,6 @@ import time
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
 
-from .const import REQUIRED_FIELDS
 from .entity import HemsEntity
 from .output_presentation import (
     ExpressionError,
@@ -26,7 +25,15 @@ class MeasurementsReady(HemsEntity, BinarySensorEntity):
     @property
     def is_on(self):
         stale = set(self.runtime.measurements.get("stale", ()))
-        return all(key in self.runtime.measurements and key not in stale for key in REQUIRED_FIELDS)
+        required_fields = {
+            input_spec.field
+            for input_spec in self.runtime.contract.inputs.values()
+            if input_spec.required
+        }
+        return all(
+            field in self.runtime.measurements and field not in stale
+            for field in required_fields
+        )
 
 
 class ContractBinarySensor(HemsEntity, BinarySensorEntity):

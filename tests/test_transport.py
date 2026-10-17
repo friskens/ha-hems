@@ -1,8 +1,9 @@
 import json
+from pathlib import Path
 import pytest
 
-from custom_components.hems.contract import load_bundled_contract
-from custom_components.hems.protocol import ProtocolError
+from custom_components.hems.contract import load_bundled_contract, parse_contract
+from custom_components.hems.protocol import ProtocolError, due
 from custom_components.hems.transport import AuthError, Client, TransportError
 
 
@@ -30,6 +31,14 @@ class Session:
     def post(self, url, **kwargs):
         self.url, self.kwargs = url, kwargs
         return self.response
+
+
+def contract_with_exchange(**exchange):
+    data = json.loads(
+        (Path(__file__).resolve().parents[1] / "contract" / "hems-contract.json").read_text(encoding="utf-8")
+    )
+    data["exchange"].update(exchange)
+    return parse_contract(data)
 
 
 async def test_header_only_no_redirect_or_heartbeat():
@@ -62,6 +71,37 @@ async def test_contract_allowlist_sends_known_telemetry_and_stale_only():
     assert session.kwargs["json"]["stale"] == ["soc"]
     assert "load_power_w" not in session.kwargs["json"]
     assert "unknown_future_field" not in session.kwargs["json"]
+
+
+async def test_contract_controls_base_path_header_and_literal_constants():
+    contract = contract_with_exchange(path="/contract-exchange", auth_header="X-Contract-Key")
+    session = Session()
+    await Client(session, "https://example.com", "test-secret", contract).exchange({}, lambda: 100)
+    assert session.url == "https://example.com/contract-exchange"
+    assert session.kwargs["headers"] == {"X-Contract-Key": "test-secret"}
+    assert session.kwargs["json"]["heartbeat"] is False
+    assert session.kwargs["json"]["app_version"] == "ha-hems/0.2.0a2"
+
+
+async def test_contract_response_limit_is_enforced():
+    contract = contract_with_exchange(max_response_bytes=10)
+    with pytest.raises(ProtocolError, match="response_too_large"):
+        await Client(Session(body=b"x" * 11), "https://example.com", "secret", contract).exchange({}, lambda: 100)
+
+
+def test_contract_cadence_controls_every_spacing_and_quarter_boundary():
+    cadence = contract_with_exchange(
+        cadence={
+            "every_s": 90,
+            "also_at_quarter_hour": False,
+            "min_spacing_s": 30,
+            "backoff_after_failure_s": 45,
+        }
+    ).exchange_policy.cadence
+    assert not due(1020, 1000, 1000, 20, {"soc": 51}, {"soc": 50}, cadence)
+    assert due(1030, 1000, 1000, 20, {"soc": 51}, {"soc": 50}, cadence)
+    assert not due(1800, 1795, 1795, 20, {"soc": 50}, {"soc": 50}, cadence)
+    assert due(1090, 1060, 1000, 20, {"soc": 50}, {"soc": 50}, cadence)
 
 
 @pytest.mark.parametrize(

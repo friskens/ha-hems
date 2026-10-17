@@ -115,9 +115,6 @@
           "disconnected": "Frånkopplad"
         }
       },
-      "ev_soc": {
-        "name": "Rapporterad laddnivå för bilen"
-      },
       "power_target": {
         "name": "Effektmål"
       },
