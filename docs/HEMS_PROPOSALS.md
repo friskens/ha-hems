@@ -199,6 +199,29 @@ once its source has not reported for 300 seconds — the same rule as the other 
 already accepts this field. Skip an exchange only when a required input has had no value at all since
 start. A missing value is still never sent as 0.
 
+
+## 8. Review requested: Home Assistant validity and stale telemetry
+
+The current proposal uses `last_reported` age and a generic 300-second limit
+to label a request field `stale`. This conflicts with Home Assistant's entity
+model. A selected sensor may legitimately retain an unchanged numeric state,
+including `0 W`, while its integration is healthy. Home Assistant represents
+an unavailable source as `unavailable`, and a source without a value as
+`unknown`; integrations are expected to mark entities unavailable when their
+device or service cannot be reached.
+
+References:
+
+- [Home Assistant: state and state object](https://www.home-assistant.io/docs/configuration/state_object/)
+- [Home Assistant contributor guidance: mark entities unavailable when appropriate](https://contributors.home-assistant.io/core/quality-scale/entity-unavailable/)
+
+Consequently, a HEMS Client must not invalidate an otherwise valid Home
+Assistant state merely because that numeric value has not changed within 300
+seconds. The HEMS contract needs to be revised so its telemetry-validity
+semantics work with Home Assistant's `unknown` and `unavailable` states.
+The exact contract representation and resulting behaviour are owned by the
+HEMS maintainer.
+
 ---
 
 When a change on the service side affects the client, a pull request against `docs/PROTOCOL.md`
