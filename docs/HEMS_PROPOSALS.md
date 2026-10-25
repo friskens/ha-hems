@@ -124,8 +124,9 @@ Implemented in a9:
 2. **Unit and sign.** Accept `A` (convert `mA` if the source uses it). Send the absolute value: some
    meters report a negative current while exporting. A negative value or a value above 250 A makes
    the service ignore the field.
-3. **Freshness.** Apply the same checks as for the required measurements: `last_reported` age below
-   120 seconds, no `unknown`/`unavailable`, finite numbers. If any phase fails, omit
+3. **Freshness.** Apply the same checks as for the required measurements: no
+   `unknown`/`unavailable`, finite numbers. The age of an unchanged valid state is not a check
+   (see proposal 7). If any phase fails, omit
    `phase_current_a` for that exchange. Never send `0` for a phase that is not measured, and never
    send fewer than three values.
 4. **Every exchange.** Send the field with every exchange while the sensors are valid; an omitted
@@ -193,11 +194,15 @@ look at the automation; it clears when the check follows again.
 
 **Stale measurements — do not block the exchange.** Several integrations report slowly when they
 retry (a Modbus integration can go 49 seconds or more between values after a timeout), so a 120-second
-gate stops the whole exchange for hours. The service does not need that gate. Send the last known
-value in every exchange, and list a field in the optional request field `stale` (request field names)
-once its source has not reported for 300 seconds — the same rule as the other client. The service
-already accepts this field. Skip an exchange only when a required input has had no value at all since
-start. A missing value is still never sent as 0.
+gate stops the whole exchange for hours. The service does not need that gate. Many integrations also
+write a state only when it changes, so a battery at `0 W` can keep the same valid state for a day.
+Age is therefore not a validity signal in Home Assistant: a source that cannot be reached is
+`unavailable`, and a source without a value is `unknown`. Send the last known value in every
+exchange, and list a field in the optional request field `stale` (request field names) while its
+selected source is `unavailable`, `unknown` or not a valid number — for a field built from several
+sources, while any of them is. A valid state is never marked stale because of its `last_changed` or
+`last_reported` age. The service already accepts this field. Skip an exchange only when a required
+input has had no value at all since start. A missing value is still never sent as 0.
 
 ---
 
