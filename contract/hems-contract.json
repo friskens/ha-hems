@@ -24,7 +24,7 @@
       "device_class": "battery",
       "unit": "%",
       "repair_if_missing": true,
-      "stale_after_s": 300
+      "stale_after_s": null
     },
     "grid_power": {
       "field": "grid_power",
@@ -39,7 +39,7 @@
       "options": [
         "invert"
       ],
-      "stale_after_s": 300
+      "stale_after_s": null
     },
     "battery_power": {
       "field": "battery_power",
@@ -54,7 +54,7 @@
       "options": [
         "invert"
       ],
-      "stale_after_s": 300
+      "stale_after_s": null
     },
     "solar_sources": {
       "field": "solar_power",
@@ -67,7 +67,7 @@
         "kW"
       ],
       "repair_if_missing": true,
-      "stale_after_s": 300
+      "stale_after_s": null
     },
     "ev_power": {
       "field": "ev_power_w",
@@ -78,7 +78,7 @@
         "W",
         "kW"
       ],
-      "stale_after_s": 300
+      "stale_after_s": null
     },
     "ev_soc": {
       "field": "ev_soc_pct",
@@ -100,7 +100,7 @@
         "mA"
       ],
       "label_hint": "Grid meter at the connection point, not inverter output current",
-      "stale_after_s": 300
+      "stale_after_s": null
     },
     "grid_meter_current_l2": {
       "field": "phase_current_a",
@@ -113,7 +113,7 @@
         "A",
         "mA"
       ],
-      "stale_after_s": 300
+      "stale_after_s": null
     },
     "grid_meter_current_l3": {
       "field": "phase_current_a",
@@ -126,7 +126,7 @@
         "A",
         "mA"
       ],
-      "stale_after_s": 300
+      "stale_after_s": null
     },
     "load_power": {
       "field": "load_power_w",
@@ -140,7 +140,7 @@
         "kW"
       ],
       "client_status": "not_sent",
-      "stale_after_s": 300
+      "stale_after_s": null
     }
   },
   "rules": {
@@ -204,8 +204,13 @@
     },
     "mark_stale": {
       "field": "stale",
-      "after_s": 300,
-      "expression": "names of the request fields whose source has not reported for after_s",
+      "after_s": null,
+      "when_source_state": [
+        "unavailable",
+        "unknown"
+      ],
+      "expression": "names of the request fields whose selected source is unavailable, unknown or not a valid number; a field built from several sources is stale while any of them is",
+      "age_is_not_staleness": "a valid state that has not changed or has not been reported again is current; neither last_changed nor last_reported age marks a field stale",
       "send_last_known_value": true,
       "never_blocks_exchange": true,
       "skip_exchange_only_if": "a required input has had no value since start"

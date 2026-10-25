@@ -39,6 +39,7 @@ def test_loads_authoritative_bundled_contract_as_read_only_data():
     assert contract.exchange_policy.cadence.backoff_after_failure_s == 60
     assert contract.exchange_policy.max_response_bytes == 65536
     assert contract.request_constants.app_version == "ha-hems/<version>"
+    assert contract.stale_on_invalid_sources
     with pytest.raises(TypeError):
         contract.raw["contract"] = "other"
 

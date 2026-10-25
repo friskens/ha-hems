@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0a3
+
+- Contract: `stale` follows Home Assistant's validity model instead of age.
+  A request field is stale while its selected source is `unavailable`,
+  `unknown` or not a valid number (for a multi-source field, while any source
+  is). An unchanged valid state, such as a battery at `0 W` for a day, is
+  current. Every input now has `stale_after_s: null`; the last known value is
+  still sent and a missing value is never sent as 0.
+- With this contract the client no longer marks contract inputs stale by
+  age. Marking `unavailable` and `unknown` sources is a client follow-up.
+
 ## 0.2.0a2
 
 - Build the HEMS decision, declared extra entities and connection presentation

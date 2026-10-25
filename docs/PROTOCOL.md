@@ -39,7 +39,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 - **Device class:** `battery`
 - **Unit:** `%`
 - **Repair if missing:** `true`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ### `grid_power`
 
@@ -54,7 +54,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 #### Options
 
 `invert`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ### `battery_power`
 
@@ -69,7 +69,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 #### Options
 
 `invert`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ### `solar_sources`
 
@@ -82,7 +82,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 
 `W`, `kW`
 - **Repair if missing:** `true`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ### `ev_power`
 
@@ -93,7 +93,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 #### Units
 
 `W`, `kW`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ### `ev_soc`
 
@@ -116,7 +116,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 
 `A`, `mA`
 - **Label hint:** `Grid meter at the connection point, not inverter output current`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ### `grid_meter_current_l2`
 
@@ -129,7 +129,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 #### Units
 
 `A`, `mA`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ### `grid_meter_current_l3`
 
@@ -142,7 +142,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 #### Units
 
 `A`, `mA`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ### `load_power`
 
@@ -156,7 +156,7 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 
 `W`, `kW`
 - **Client status:** `not_sent`
-- **Stale after s:** `300`
+- **Stale after s:** `null`
 
 ## Local transformation rules
 
@@ -218,8 +218,12 @@ This document is generated from `contract/hems-contract.json`. Change the JSON c
 ### `mark_stale`
 
 - **Field:** `stale`
-- **After s:** `300`
-- **Expression:** `names of the request fields whose source has not reported for after_s`
+- **After s:** `null`
+#### When source state
+
+`unavailable`, `unknown`
+- **Expression:** `names of the request fields whose selected source is unavailable, unknown or not a valid number; a field built from several sources is stale while any of them is`
+- **Age is not staleness:** `a valid state that has not changed or has not been reported again is current; neither last_changed nor last_reported age marks a field stale`
 - **Send last known value:** `true`
 - **Never blocks exchange:** `true`
 - **Skip exchange only if:** `a required input has had no value since start`
