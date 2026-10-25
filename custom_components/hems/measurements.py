@@ -54,6 +54,14 @@ def collect_with_sources(options, observe, now, max_age=300):
             # Never send an unchecked shape when the packaged contract is
             # unavailable or invalid. Runtime surfaces this diagnostically.
             return {}, ["contract"], {}
+    try:
+        contract = load_bundled_contract()
+    except ContractError:
+        return {}, ["contract"], {}
+    # Pre-0.2.0a1 option keys remain supported after upgrade.  They still use
+    # their fixed mapping, but their freshness must follow the bundled
+    # contract rather than preserving an obsolete age gate.
+    legacy_max_age = None if contract.stale_on_invalid_sources else max_age
     # Grid: +import. Battery: +charge. Solar: nonnegative DC production.
     sample, invalid, reported = {}, [], {}
     mapping = {
@@ -71,7 +79,7 @@ def collect_with_sources(options, observe, now, max_age=300):
             continue
         # EV SOC freshness belongs to its source integration. Legacy timeout and
         # timestamp options are intentionally ignored, including existing entries.
-        age = None if measurement_field == "ev_soc_pct" else max_age
+        age = None if measurement_field == "ev_soc_pct" else legacy_max_age
         obs = observe(entity)
         value = normalize(
             obs,
@@ -86,7 +94,7 @@ def collect_with_sources(options, observe, now, max_age=300):
             sample[measurement_field] = value
             reported[measurement_field] = obs.reported_at
     solar_observations = [observe(entity) for entity in options.get("solar_entities", [])]
-    solar = [normalize(observation, now, "power", max_age) for observation in solar_observations]
+    solar = [normalize(observation, now, "power", legacy_max_age) for observation in solar_observations]
     if not solar or any(value is None or value < 0 for value in solar):
         invalid.append("solar_power")
     else:
@@ -98,7 +106,10 @@ def collect_with_sources(options, observe, now, max_age=300):
             invalid.append("phase_current_a")
         else:
             phase_observations = [observe(entity) for entity in phase_entities]
-            phase_currents = [normalize(observation, now, "current", max_age) for observation in phase_observations]
+            phase_currents = [
+                normalize(observation, now, "current", legacy_max_age)
+                for observation in phase_observations
+            ]
             if any(value is None for value in phase_currents):
                 invalid.append("phase_current_a")
             else:

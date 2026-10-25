@@ -156,6 +156,8 @@ class Runtime:
         self.measurements = self.measurement_cache.payload(
             now,
             stale_after,
+            # The contract's current expression includes unavailable, unknown
+            # and values rejected as non-numeric/invalid by collection.
             self.invalid if self.contract.stale_on_invalid_sources else (),
         )
         # A previously valid required value remains usable (and eventually
