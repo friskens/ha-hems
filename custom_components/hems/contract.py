@@ -106,6 +106,7 @@ class HemsContract:
     exchange: Mapping[str, Any]
     exchange_policy: ExchangePolicy
     request_constants: RequestConstants
+    stale_on_invalid_sources: bool
     inputs: Mapping[str, ContractInput]
     outputs: Mapping[str, Mapping[str, Any]]
     raw: Mapping[str, Any]
@@ -212,6 +213,30 @@ def _validate_request_constants(root: Mapping[str, Any]) -> RequestConstants:
     return RequestConstants(heartbeat, app_version)
 
 
+def _stale_on_invalid_sources(root: Mapping[str, Any]) -> bool:
+    """Whether this contract declares HA source validity as staleness.
+
+    Older contracts use only per-input age limits.  The availability-based
+    grammar is intentionally small: the client can recognise Home Assistant's
+    two non-value states, while the contract remains the authority on whether
+    they should be reported through the request's ``stale`` field.
+    """
+    rules = root.get("rules", {})
+    if not isinstance(rules, Mapping):
+        raise ContractError("invalid_rules")
+    definition = rules.get("mark_stale")
+    if definition is None:
+        return False
+    if not isinstance(definition, Mapping):
+        raise ContractError("invalid_mark_stale")
+    states = definition.get("when_source_state", ())
+    if not isinstance(states, (list, tuple)) or not all(
+        isinstance(state, str) and state for state in states
+    ):
+        raise ContractError("invalid_mark_stale_source_states")
+    return bool(states)
+
+
 def parse_contract(data: Any) -> HemsContract:
     """Validate and freeze contract data without applying its rules.
 
@@ -226,6 +251,7 @@ def parse_contract(data: Any) -> HemsContract:
     exchange = _mapping(root.get("exchange"), "exchange")
     exchange_policy = _validate_exchange(exchange)
     request_constants = _validate_request_constants(root)
+    stale_on_invalid_sources = _stale_on_invalid_sources(root)
 
     raw_inputs = _mapping(root.get("inputs"), "inputs")
     inputs: dict[str, ContractInput] = {}
@@ -257,6 +283,7 @@ def parse_contract(data: Any) -> HemsContract:
         exchange=_readonly(exchange),
         exchange_policy=exchange_policy,
         request_constants=request_constants,
+        stale_on_invalid_sources=stale_on_invalid_sources,
         inputs=MappingProxyType(inputs),
         outputs=MappingProxyType(outputs),
         raw=_readonly(root),

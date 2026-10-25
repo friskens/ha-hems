@@ -6,7 +6,12 @@ import pytest
 
 from custom_components.hems.contract import bundled_contract_path, load_bundled_contract, parse_contract
 from custom_components.hems.local_transformations import TransformationError, evaluate
-from custom_components.hems.measurements import Observation, collect_contract
+from custom_components.hems.measurements import (
+    MeasurementCache,
+    Observation,
+    collect_contract,
+    collect_contract_with_sources,
+)
 from custom_components.hems.telemetry_config import (
     SelectedState,
     defaults_for_contract,
@@ -129,6 +134,44 @@ def test_interim_input_safety_keeps_invalid_ev_power_out_of_the_request():
     # removed when the contract declares an input min/range schema.
     assert "ev_power_w" not in sample
     assert invalid == ["ev_power_w"]
+
+
+def test_contract_uses_ha_validity_not_age_and_marks_unavailable_cached_value_stale():
+    contract = load_bundled_contract()
+    options = {
+        option_key("battery_soc"): "sensor.soc",
+        option_key("grid_power"): "sensor.grid",
+        option_key("battery_power"): "sensor.battery",
+        option_key("solar_sources"): ["sensor.pv"],
+    }
+    observations = {
+        "sensor.soc": Observation(50, "%", 100),
+        "sensor.grid": Observation(0, "W", 100),
+        "sensor.battery": Observation(0, "W", 100),
+        "sensor.pv": Observation(0, "W", 100),
+    }
+    cache = MeasurementCache()
+    sample, invalid, reported = collect_contract_with_sources(
+        options, observations.get, 100_000, contract
+    )
+    assert not invalid
+    cache.update(sample, reported)
+    assert "stale" not in cache.payload(
+        100_000, {item.field: item.stale_after_s for item in contract.inputs.values()}
+    )
+
+    observations["sensor.battery"] = Observation("unavailable", "W", 100_000)
+    sample, invalid, reported = collect_contract_with_sources(
+        options, observations.get, 100_001, contract
+    )
+    cache.update(sample, reported)
+    payload = cache.payload(
+        100_001,
+        {item.field: item.stale_after_s for item in contract.inputs.values()},
+        invalid if contract.stale_on_invalid_sources else (),
+    )
+    assert payload["battery_power"] == 0
+    assert payload["stale"] == ["battery_power"]
 
 
 def test_transformations_follow_a_renamed_contract_input_not_client_semantics():

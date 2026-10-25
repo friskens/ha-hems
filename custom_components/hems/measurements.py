@@ -138,15 +138,32 @@ class MeasurementCache:
     def missing_required(self, fields: tuple[str, ...]) -> bool:
         return any(field not in self.values for field in fields)
 
-    def payload(self, now: float, stale_after: Mapping[str, int | None]) -> dict[str, object]:
+    def payload(
+        self,
+        now: float,
+        stale_after: Mapping[str, int | None],
+        invalid_sources: tuple[str, ...] | list[str] = (),
+    ) -> dict[str, object]:
+        """Return cached telemetry and the contract-declared stale fields.
+
+        A contract may use Home Assistant's unavailable/unknown model rather
+        than observation age.  In that case ``invalid_sources`` comes from
+        the current collection pass.  Only a previously observed value is
+        retained and marked stale; a value never observed still blocks the
+        exchange through ``missing_required``.
+        """
         payload = dict(self.values)
-        stale = sorted(
+        stale = {
+            name for name in invalid_sources
+            if name in self.values
+        }
+        stale.update(
             name
             for name, timestamp in self.reported_at.items()
             if (limit := stale_after.get(name)) is not None and now - timestamp >= limit
         )
         if stale:
-            payload["stale"] = stale
+            payload["stale"] = sorted(stale)
         return payload
 def collect_contract_with_sources(options, observe, now, contract):
     """Collect telemetry by applying the contract's bounded local rules.
