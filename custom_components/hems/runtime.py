@@ -153,7 +153,13 @@ class Runtime:
             for input_ in self.contract.inputs.values()
             if input_.definition.get("client_status") != "not_sent"
         }
-        self.measurements = self.measurement_cache.payload(now, stale_after)
+        self.measurements = self.measurement_cache.payload(
+            now,
+            stale_after,
+            # The contract's current expression includes unavailable, unknown
+            # and values rejected as non-numeric/invalid by collection.
+            self.invalid if self.contract.stale_on_invalid_sources else (),
+        )
         # A previously valid required value remains usable (and eventually
         # appears in ``stale``).  Only a required value never observed since
         # startup prevents the exchange.

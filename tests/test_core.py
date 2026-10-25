@@ -285,12 +285,12 @@ def test_collect_never_substitutes_zero_and_sums_solar():
     assert sample == {"soc": 50, "grid_power": -2000, "battery_power": 1000, "solar_power": 2500}
     assert invalid == ["ev_soc_pct"]
     states["pv2"] = Observation(500, "W", 0)
-    # A slow upstream report remains usable until the contract's 300-second
-    # stale boundary; runtime then keeps the last valid value and marks it.
-    assert "solar_power" not in collect(options, states.get, 401)[0]
+    # A valid unchanged HA state remains current; availability, not event age,
+    # is the contract's freshness signal.
+    assert collect(options, states.get, 401)[0]["solar_power"] == 2500
 
 
-def test_last_valid_measurement_is_sent_and_marked_stale_after_contract_limit():
+def test_legacy_options_follow_contract_availability_not_event_age():
     states = {
         "soc": Observation(50, "%", 100),
         "grid": Observation(1, "kW", 100),
@@ -306,14 +306,13 @@ def test_last_valid_measurement_is_sent_and_marked_stale_after_contract_limit():
     cache = MeasurementCache()
     sample, _invalid, reported = collect_with_sources(options, states.get, 110)
     cache.update(sample, reported)
-    # The source is now older than 300 s.  It remains a real value, never 0,
-    # and the request identifies its contract field as stale.
+    # The states are unchanged and older than 300 s, but still valid.
     sample, _invalid, reported = collect_with_sources(options, states.get, 401)
     cache.update(sample, reported)
-    payload = cache.payload(401, {name: 300 for name in cache.values})
+    payload = cache.payload(401, {name: None for name in cache.values})
     assert payload["soc"] == 50
     assert payload["grid_power"] == 1000
-    assert payload["stale"] == ["battery_power", "grid_power", "soc", "solar_power"]
+    assert "stale" not in payload
 
 
 def test_required_measurement_only_blocks_until_a_real_value_has_been_seen():
@@ -338,7 +337,7 @@ def test_phase_current_requires_three_fresh_sensors_and_uses_magnitudes():
     sample, invalid = collect(options, states.get, 110)
     assert sample["phase_current_a"] == [12, 1.5, 0]
     assert "phase_current_a" not in invalid
-    states["l3"] = Observation(1, "A", 0)
+    states["l3"] = Observation("unavailable", "A", 0)
     sample, invalid = collect(options, states.get, 401)
     assert "phase_current_a" not in sample
     assert "phase_current_a" in invalid

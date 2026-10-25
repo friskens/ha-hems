@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from custom_components.hems.contract import load_bundled_contract, parse_contract
+from custom_components.hems.const import VERSION
 from custom_components.hems.protocol import ProtocolError, due
 from custom_components.hems.transport import AuthError, Client, TransportError
 
@@ -80,7 +81,7 @@ async def test_contract_controls_base_path_header_and_literal_constants():
     assert session.url == "https://example.com/contract-exchange"
     assert session.kwargs["headers"] == {"X-Contract-Key": "test-secret"}
     assert session.kwargs["json"]["heartbeat"] is False
-    assert session.kwargs["json"]["app_version"] == "ha-hems/0.2.0a2"
+    assert session.kwargs["json"]["app_version"] == f"ha-hems/{VERSION}"
 
 
 async def test_contract_response_limit_is_enforced():
